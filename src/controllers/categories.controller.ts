@@ -4,13 +4,15 @@ import {
   Get,
   HttpException,
   HttpStatus,
-  // NotFoundException,
-  // Param,
+  NotFoundException,
+  Param,
   Post,
+  Put,
 } from '@nestjs/common';
 import { CategoriesService } from '../services/categories.service';
 import CategoryDTO from 'src/types/categories/categoryDTO';
 import CreateCategoryDTO from 'src/types/categories/createCategoryDTO';
+import UpdateCategoryDTO from 'src/types/categories/updateCategoryDTO';
 
 @Controller()
 export class CategoriesController {
@@ -21,15 +23,15 @@ export class CategoriesController {
     return await this.categoriesService.findAll();
   }
 
-  // @Get('categories/:id')
-  // async getCategoryById(@Param('id') id: string): Promise<CategoryDTO> {
-  //   const category = await this.CategoriesService.getCategoryById(id);
-  //   if (!category) {
-  //     throw new NotFoundException('Invalid category');
-  //   }
+  @Get('categories/:id')
+  async findById(@Param('id') id: string): Promise<CategoryDTO> {
+    const category = await this.categoriesService.findById(Number(id));
+    if (!category) {
+      throw new NotFoundException('Category not found');
+    }
 
-  //   return this.CategoriesService.toDTO(category);
-  // }
+    return category;
+  }
 
   @Post('categories')
   async create(@Body() category: CreateCategoryDTO): Promise<CategoryDTO> {
@@ -37,6 +39,27 @@ export class CategoriesController {
       return await this.categoriesService.create(category);
     } catch (error) {
       let message: string = 'Erro ao criar categoria';
+      if (error instanceof Error) message = error.message;
+
+      throw new HttpException(
+        {
+          status: 400,
+          error: message,
+        },
+        HttpStatus.BAD_REQUEST,
+      );
+    }
+  }
+
+  @Put('categories/:id')
+  async update(
+    @Param('id') id: string,
+    @Body() category: UpdateCategoryDTO,
+  ): Promise<CategoryDTO> {
+    try {
+      return await this.categoriesService.update(Number(id), category);
+    } catch (error) {
+      let message: string = 'Erro ao atualizar categoria';
       if (error instanceof Error) message = error.message;
 
       throw new HttpException(

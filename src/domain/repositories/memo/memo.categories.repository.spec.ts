@@ -6,6 +6,14 @@ import Category from 'src/domain/entities/category';
 
 describe('InMemoCategoriesRepository', () => {
   let repository: CategoriesRepository;
+  const baseCategorySchema = {
+    id: expect.any(Number),
+    title: expect.any(String),
+    slug: expect.any(String),
+    color: expect.any(String),
+    createdAt: expect.any(String),
+    updatedAt: expect.any(String),
+  };
 
   beforeAll(() => {
     repository = new InMemoCategoriesRepository();
@@ -18,12 +26,10 @@ describe('InMemoCategoriesRepository', () => {
     };
 
     expect(await repository.create(newCategoryData)).toEqual({
-      id: expect.any(Number),
+      ...baseCategorySchema,
       title: newCategoryData.title,
       slug: slugfy(newCategoryData.title),
       color: newCategoryData.color,
-      createdAt: expect.any(String),
-      updatedAt: expect.any(String),
     });
   });
 
@@ -37,12 +43,10 @@ describe('InMemoCategoriesRepository', () => {
 
     const category = await repository.findById(categories[0].id);
     expect(category).toEqual({
-      id: expect.any(Number),
+      ...baseCategorySchema,
       title: categories[0].title,
       slug: slugfy(categories[0].title),
       color: categories[0].color,
-      createdAt: expect.any(String),
-      updatedAt: expect.any(String),
     });
   });
 
@@ -52,12 +56,10 @@ describe('InMemoCategoriesRepository', () => {
 
     const category = await repository.findBySlug(categories[0].slug);
     expect(category).toEqual({
-      id: expect.any(Number),
+      ...baseCategorySchema,
       title: categories[0].title,
       slug: slugfy(categories[0].title),
       color: categories[0].color,
-      createdAt: expect.any(String),
-      updatedAt: expect.any(String),
     });
   });
 
@@ -72,12 +74,40 @@ describe('InMemoCategoriesRepository', () => {
     );
 
     expect(repository.toDTO(category)).toEqual({
-      id: expect.any(Number),
+      ...baseCategorySchema,
       title: category.getTitle(),
       slug: slugfy(category.getTitle()),
       color: category.getColor(),
-      createdAt: expect.any(String),
-      updatedAt: expect.any(String),
     });
+  });
+
+  it('should update a category', async () => {
+    const id = 1;
+    const updateCategoryProps: CreateCategoryDTO = {
+      title: 'Updated Category',
+      color: '#001122',
+    };
+    const category = await repository.findById(id);
+    expect(category).not.toBeNull();
+
+    const updatedCategory = await repository.update(id, updateCategoryProps);
+    const categorySchema = {
+      ...baseCategorySchema,
+      id,
+      title: updateCategoryProps.title,
+      slug: slugfy(updateCategoryProps.title),
+      color: updateCategoryProps.color,
+    };
+
+    expect(updatedCategory).toEqual(categorySchema);
+    expect(await repository.findById(id)).toEqual(categorySchema);
+  });
+
+  it('should remove a category', async () => {
+    const id = 1;
+    expect(await repository.findById(id)).not.toBeNull();
+
+    await repository.remove(id);
+    expect(await repository.findById(id)).toBeNull();
   });
 });

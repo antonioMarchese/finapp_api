@@ -8,6 +8,14 @@ import slugfy from 'src/utils/slugify';
 describe('CategoriesService', () => {
   let service: CategoriesService;
   const categories: CategoryDTO[] = [];
+  const categorySchema = {
+    id: expect.any(Number),
+    title: expect.any(String),
+    slug: expect.any(String),
+    color: expect.any(String),
+    createdAt: expect.any(String),
+    updatedAt: expect.any(String),
+  };
 
   const mockCategoriesRepository = {
     create: jest.fn(async (dto: CreateCategoryDTO) => {
@@ -28,6 +36,27 @@ describe('CategoriesService', () => {
       return await Promise.resolve(
         categories.find((category) => category.slug === slug),
       );
+    }),
+    findById: jest.fn(async (id: number) => {
+      return await Promise.resolve(
+        categories.find((category) => category.id === id),
+      );
+    }),
+    update: jest.fn(async (id: number, dto: CreateCategoryDTO) => {
+      const category = categories.find((category) => category.id === id)!;
+      category.title = dto.title;
+      category.slug = slugfy(dto.title);
+      category.color = dto.color ?? category.color;
+      category.updatedAt = new Date().toISOString();
+
+      return await Promise.resolve(category);
+    }),
+    remove: jest.fn(async (id: number) => {
+      categories.splice(
+        categories.findIndex((category) => category.id === id),
+        1,
+      );
+      return await Promise.resolve(null);
     }),
   };
 
@@ -56,12 +85,10 @@ describe('CategoriesService', () => {
     };
 
     expect(await service.create(newCategoryData)).toEqual({
-      id: expect.any(Number),
+      ...categorySchema,
       title: newCategoryData.title,
       slug: slugfy(newCategoryData.title),
       color: newCategoryData.color,
-      createdAt: expect.any(String),
-      updatedAt: expect.any(String),
     });
     expect(mockCategoriesRepository.create).toHaveBeenCalled();
   });
@@ -84,5 +111,87 @@ describe('CategoriesService', () => {
     }
 
     expect(mockCategoriesRepository.create).toHaveBeenCalled();
+  });
+
+  it('should update a category', async () => {
+    const id = 1;
+    const updateCategoryProps: CreateCategoryDTO = {
+      title: 'Updated Category',
+      color: '#001122',
+    };
+
+    expect(await service.update(id, updateCategoryProps)).toEqual({
+      ...categorySchema,
+      title: updateCategoryProps.title,
+      color: updateCategoryProps.color,
+    });
+  });
+
+  it('should throw error when category with that slug alredy exists', async () => {
+    const id = 1;
+    const createCategoryProps: CreateCategoryDTO = {
+      title: 'New Category',
+      color: '#001122',
+    };
+    await service.create(createCategoryProps);
+
+    try {
+      await service.update(id, createCategoryProps);
+    } catch (error) {
+      expect(error).toEqual(new Error('Category already exists'));
+    }
+  });
+
+  it('should update only category color', async () => {
+    const id = 1;
+    const updateCategoryProps: CreateCategoryDTO = {
+      title: 'Supermarket',
+      color: '#AABBCC',
+    };
+
+    expect(await service.update(id, updateCategoryProps)).toEqual({
+      ...categorySchema,
+      title: updateCategoryProps.title,
+      color: updateCategoryProps.color,
+    });
+  });
+
+  it('should throw error when category not found on update', async () => {
+    const id = 10;
+    const updateCategoryProps: CreateCategoryDTO = {
+      title: 'Updated Category',
+      color: '#001122',
+    };
+
+    try {
+      await service.update(id, updateCategoryProps);
+    } catch (error) {
+      expect(error).toEqual(new Error('Category not found'));
+    }
+  });
+
+  it('should remove a category', async () => {
+    const newCategoryData: CategoryDTO = {
+      id: 20,
+      title: 'Testing Category',
+      slug: 'testing_category',
+      color: '#112233',
+      createdAt: new Date().toISOString(),
+      updatedAt: new Date().toISOString(),
+    };
+    categories.push(newCategoryData);
+
+    expect(await service.remove(newCategoryData.id)).toBeNull();
+    expect(
+      await mockCategoriesRepository.findById(newCategoryData.id),
+    ).toBeUndefined();
+  });
+
+  it('should throw error if category not found when trying to remove a category', async () => {
+    try {
+      await service.remove(20);
+    } catch (error) {
+      expect(error).toEqual(new Error('Category not found'));
+    }
   });
 });

@@ -43,4 +43,8 @@ export default class Category {
   setUpdatedAt() {
     this.updatedAt = new Date();
   }
+
+  setSlug(slug: string) {
+    this.slug = slug;
+  }
 }

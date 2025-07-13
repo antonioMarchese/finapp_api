@@ -60,6 +60,27 @@ export class InMemoCategoriesRepository extends CategoriesRepository {
     return await Promise.resolve(this.toDTO(category));
   }
 
+  async update(id: number, props: CreateCategoryDTO): Promise<CategoryDTO> {
+    const category = this.categories.find(
+      (category) => category.getId() === id,
+    )!;
+
+    category.setTitle(props.title);
+    category.setSlug(slugfy(props.title));
+    category.setColor(props.color ?? category.getColor());
+    category.setUpdatedAt();
+
+    return await Promise.resolve(this.toDTO(category));
+  }
+
+  async remove(id: number): Promise<null> {
+    this.categories = this.categories.filter(
+      (category) => category.getId() !== id,
+    );
+
+    return await Promise.resolve(null);
+  }
+
   toDTO(category: Category): CategoryDTO {
     return {
       id: category.getId(),
