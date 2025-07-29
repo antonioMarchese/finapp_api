@@ -3,9 +3,9 @@ import CategoriesRepository from '../categories.repository';
 import Category from 'src/domain/entities/category';
 import CategoryDTO from 'src/types/categories/categoryDTO';
 import slugfy from 'src/utils/slugify';
+import { inMemoCategories } from './memo.db';
 
 export class InMemoCategoriesRepository extends CategoriesRepository {
-  private categories: Category[] = [];
   private lastId: number = 1;
 
   private upgradeId() {
@@ -13,7 +13,7 @@ export class InMemoCategoriesRepository extends CategoriesRepository {
   }
 
   private addCategory(category: Category) {
-    this.categories.push(category);
+    inMemoCategories.push(category);
     this.upgradeId();
   }
 
@@ -34,14 +34,14 @@ export class InMemoCategoriesRepository extends CategoriesRepository {
 
   async findAll(): Promise<CategoryDTO[]> {
     return await Promise.resolve(
-      this.categories.map((category) => ({
+      inMemoCategories.map((category) => ({
         ...this.toDTO(category),
       })),
     );
   }
 
   async findById(id: number): Promise<CategoryDTO | null> {
-    const category = this.categories.find(
+    const category = inMemoCategories.find(
       (category) => category.getId() === id,
     );
 
@@ -51,7 +51,7 @@ export class InMemoCategoriesRepository extends CategoriesRepository {
   }
 
   async findBySlug(slug: string): Promise<CategoryDTO | null> {
-    const category = this.categories.find(
+    const category = inMemoCategories.find(
       (category) => category.getSlug() === slug,
     );
 
@@ -61,7 +61,7 @@ export class InMemoCategoriesRepository extends CategoriesRepository {
   }
 
   async update(id: number, props: CreateCategoryDTO): Promise<CategoryDTO> {
-    const category = this.categories.find(
+    const category = inMemoCategories.find(
       (category) => category.getId() === id,
     )!;
 
@@ -74,8 +74,8 @@ export class InMemoCategoriesRepository extends CategoriesRepository {
   }
 
   async remove(id: number): Promise<null> {
-    this.categories = this.categories.filter(
-      (category) => category.getId() !== id,
+    inMemoCategories.splice(
+      inMemoCategories.findIndex((category) => category.getId() === id),
     );
 
     return await Promise.resolve(null);
