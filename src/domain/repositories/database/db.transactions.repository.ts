@@ -3,9 +3,9 @@ import TransactionDTO from 'src/types/transactions/transactionDTO';
 import CreateTransactionDTO from 'src/types/transactions/createTransactionDTO';
 import UpdateTransactionDTO from 'src/types/transactions/updateTransactionDTO';
 import TransactionFilter from 'src/types/transactions/transactionsFilter';
-import { Transaction } from 'generated/prisma';
 import { PrismaService } from 'src/services/prisma.service';
 import { Injectable } from '@nestjs/common';
+import { Prisma } from 'generated/prisma';
 
 @Injectable()
 export class DBTransactionsRepository extends TransactionsRepository {
@@ -15,28 +15,64 @@ export class DBTransactionsRepository extends TransactionsRepository {
     super();
   }
 
-  private paginateTransactions(transactions: Transaction[], page: number) {
-    const startIndex = (page - 1) * this.itemsPerPage;
-    const endIndex = startIndex + this.itemsPerPage;
-    return transactions.slice(startIndex, endIndex);
+  private filterHashMapper: Record<
+    string,
+    (value: string) => Prisma.TransactionWhereInput
+  > = {
+    startDate: (value: string) => {
+      const startDate = new Date(value);
+      startDate.setUTCHours(0, 0, 0, 0);
+      return {
+        dueDate: {
+          gte: startDate,
+        },
+      };
+    },
+    endDate: (value: string) => {
+      const endDate = new Date(value);
+      endDate.setUTCHours(23, 59, 59, 0);
+      return {
+        dueDate: {
+          lte: endDate,
+        },
+      };
+    },
+    type: (value: 'expense' | 'income' | 'investment') => ({
+      type: value,
+    }),
+    categoryId: (value: string) => ({
+      categoryId: Number(value),
+    }),
+  };
+
+  private buildFilters(filters: TransactionFilter) {
+    return Object.keys(filters)
+      .filter((k) => filters[k] && k !== 'page')
+      .reduce((queryOptions: Prisma.TransactionWhereInput, key) => {
+        return {
+          ...queryOptions,
+          ...this.filterHashMapper[key](filters[key] as string),
+        };
+      }, {} as Prisma.TransactionWhereInput);
   }
 
   async findAllAndCount(
     filters?: TransactionFilter,
   ): Promise<{ transactions: TransactionDTO[]; count: number }> {
-    let queryOptions: {
-      skip?: number;
-      take?: number;
-      include: {
-        category: {
-          select: {
-            id: true;
-            title: true;
-            color: true;
-          };
-        };
+    const filtersDict = this.buildFilters(filters ?? {});
+
+    let queryOptions: Prisma.TransactionFindManyArgs = {};
+
+    if (filters?.page) {
+      queryOptions = {
+        skip: (filters.page - 1) * this.itemsPerPage,
+        take: this.itemsPerPage,
       };
-    } = {
+    }
+
+    const transactions = await this.prismaService.transaction.findMany({
+      where: filtersDict,
+      ...queryOptions,
       include: {
         category: {
           select: {
@@ -46,28 +82,13 @@ export class DBTransactionsRepository extends TransactionsRepository {
           },
         },
       },
-    };
-    if (filters?.page) {
-      queryOptions = {
-        ...queryOptions,
-        skip: (filters.page - 1) * this.itemsPerPage,
-        take: this.itemsPerPage,
-      };
-    }
-
-    const transactions =
-      await this.prismaService.transaction.findMany(queryOptions);
-    const count = transactions.length;
-
-    /*  if (filters) {
-      const { page } = filters;
-      transactions = this.filterTransactions(filters, transactions);
-      count = transactions.length;
-
-      if (page) {
-        transactions = this.paginateTransactions(transactions, page);
-      }
-    } */
+      orderBy: {
+        dueDate: 'desc',
+      },
+    });
+    const count = await this.prismaService.transaction.count({
+      where: filtersDict,
+    });
 
     return await Promise.resolve({
       transactions: transactions as TransactionDTO[],
