@@ -40,8 +40,12 @@ describe('TransactionsService', () => {
   };
 
   const mockTransactionsRepository = {
-    findAll: jest.fn(async () => {
-      return await Promise.resolve([...inMemoTransactions]);
+    itemsPerPage: 5,
+    findAllAndCount: jest.fn(async () => {
+      return await Promise.resolve({
+        transactions: [...inMemoTransactions],
+        count: inMemoTransactions.length,
+      });
     }),
     findById: jest.fn(async (id: number) => {
       const transaction = inMemoTransactions.find(
@@ -174,7 +178,7 @@ describe('TransactionsService', () => {
 
   it('should return all transactions', async () => {
     expect(await service.findAll()).toHaveLength(inMemoTransactions.length);
-    expect(mockTransactionsRepository.findAll).toHaveBeenCalled();
+    expect(mockTransactionsRepository.findAllAndCount).toHaveBeenCalled();
   });
 
   it('should find a transaction by its id', async () => {
@@ -247,6 +251,25 @@ describe('TransactionsService', () => {
       await service.remove(10);
     } catch (error) {
       expect(error).toEqual(new Error('Transaction not found'));
+    }
+  });
+
+  it('should return all transactions paginated', async () => {
+    const paginatedResponse = await service.findAll({ page: 1 });
+    expect(paginatedResponse).toEqual({
+      page: 1,
+      next: null,
+      prev: null,
+      count: inMemoTransactions.length,
+      results: inMemoTransactions,
+    });
+  });
+
+  it('should throw an error if page is invalid', async () => {
+    try {
+      await service.findAll({ page: 10 });
+    } catch (error) {
+      expect(error).toEqual(new Error('Invalid page'));
     }
   });
 });

@@ -1,10 +1,10 @@
 -- CreateEnum
-CREATE TYPE "TransactionType" AS ENUM ('INCOMING', 'OUTGOING');
+CREATE TYPE "TransactionType" AS ENUM ('INCOMING', 'OUTGOING', 'INVESTMENT');
 
 -- CreateTable
 CREATE TABLE "transactions" (
     "id" TEXT NOT NULL,
-    "title" TEXT,
+    "description" TEXT,
     "amount" DOUBLE PRECISION NOT NULL,
     "type" "TransactionType" NOT NULL DEFAULT 'OUTGOING',
     "categoryId" TEXT NOT NULL,

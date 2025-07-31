@@ -170,6 +170,7 @@ describe('TransactionsController', () => {
       expect(error).toEqual(new Error('Invalid category'));
     }
   });
+
   it('should throw an error if transaction does not exist on update', async () => {
     const updateTransactionData: UpdateTransactionDTO = {
       ...mockCreateTransaction,

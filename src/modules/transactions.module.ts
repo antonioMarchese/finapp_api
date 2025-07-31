@@ -1,17 +1,11 @@
 import { Module } from '@nestjs/common';
 import { TransactionsController } from 'src/controllers/transactions.controller';
-import { InMemoTransactionsRepository } from 'src/domain/repositories/memo/memo.transactions.repository';
-import TransactionsRepository from 'src/domain/repositories/transactions.repository';
 import { TransactionsService } from 'src/services/transactions.service';
+import { CategoriesModule } from './categories.module';
 
 @Module({
+  imports: [CategoriesModule],
   controllers: [TransactionsController],
-  providers: [
-    TransactionsService,
-    {
-      provide: TransactionsRepository,
-      useClass: InMemoTransactionsRepository,
-    },
-  ],
+  providers: [TransactionsService],
 })
 export class TransactionsModule {}

@@ -1,16 +1,44 @@
-import { Injectable, NotFoundException } from '@nestjs/common';
+import { Injectable, NotFoundException, HttpException } from '@nestjs/common';
+import { Category } from 'generated/prisma';
 import CategoriesRepository from 'src/domain/repositories/categories.repository';
 import TransactionsRepository from 'src/domain/repositories/transactions.repository';
+import PaginatedResponse from 'src/types/paginatedResponse';
 import CreateTransactionDTO from 'src/types/transactions/createTransactionDTO';
 import TransactionDTO from 'src/types/transactions/transactionDTO';
+import TransactionFilter from 'src/types/transactions/transactionsFilter';
 import UpdateTransactionDTO from 'src/types/transactions/updateTransactionDTO';
 
 @Injectable()
 export class TransactionsService {
   constructor(
     private readonly transactionsRepo: TransactionsRepository,
-    private readonly categoriesRepo: CategoriesRepository,
+    private readonly categoriesRepo: CategoriesRepository<Category>,
   ) {}
+
+  private isPageValid(page: number, count: number) {
+    const totalPages =
+      Math.ceil(count / this.transactionsRepo.itemsPerPage) || 1;
+
+    return page <= totalPages;
+  }
+
+  private buildPaginatedResponse(
+    page: number,
+    count: number,
+    transactions: TransactionDTO[],
+  ): PaginatedResponse<TransactionDTO> {
+    const totalPages = Math.ceil(count / this.transactionsRepo.itemsPerPage);
+    const nextPage = page + 1 <= totalPages ? page + 1 : null;
+    const prevPage = page > 1 ? page - 1 : null;
+
+    return {
+      page,
+      next: nextPage,
+      prev: prevPage,
+      count,
+      results: transactions,
+    };
+  }
 
   async create(
     createTransactionProps: CreateTransactionDTO,
@@ -37,8 +65,23 @@ export class TransactionsService {
     return await this.transactionsRepo.update(id, props);
   }
 
-  async findAll(): Promise<TransactionDTO[]> {
-    return await this.transactionsRepo.findAll();
+  async findAll(
+    filters?: TransactionFilter,
+  ): Promise<TransactionDTO[] | PaginatedResponse<TransactionDTO>> {
+    const { transactions, count } =
+      await this.transactionsRepo.findAllAndCount(filters);
+    if (filters?.page) {
+      if (!this.isPageValid(Number(filters.page), count))
+        throw new HttpException('Invalid page', 400);
+
+      return this.buildPaginatedResponse(
+        Number(filters.page),
+        count,
+        transactions,
+      );
+    }
+
+    return transactions;
   }
 
   async findById(id: number): Promise<TransactionDTO | null> {

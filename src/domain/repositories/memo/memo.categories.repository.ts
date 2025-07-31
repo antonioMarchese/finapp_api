@@ -5,7 +5,7 @@ import CategoryDTO from 'src/types/categories/categoryDTO';
 import slugfy from 'src/utils/slugify';
 import { inMemoCategories } from './memo.db';
 
-export class InMemoCategoriesRepository extends CategoriesRepository {
+export class InMemoCategoriesRepository extends CategoriesRepository<Category> {
   private lastId: number = 1;
 
   private upgradeId() {
