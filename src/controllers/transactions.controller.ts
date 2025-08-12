@@ -9,9 +9,9 @@ import {
   Query,
 } from '@nestjs/common';
 import { TransactionsService } from 'src/services/transactions.service';
-import PaginatedResponse from 'src/types/paginatedResponse';
 import CreateTransactionDTO from 'src/types/transactions/createTransactionDTO';
 import TransactionDTO from 'src/types/transactions/transactionDTO';
+import TransactionPaginatedResponse from 'src/types/transactions/transactionPaginatedResponse';
 import TransactionFilter from 'src/types/transactions/transactionsFilter';
 import UpdateTransactionDTO from 'src/types/transactions/updateTransactionDTO';
 
@@ -22,7 +22,7 @@ export class TransactionsController {
   @Get('transactions')
   async findAll(
     @Query() filters?: TransactionFilter,
-  ): Promise<TransactionDTO[] | PaginatedResponse<TransactionDTO>> {
+  ): Promise<TransactionDTO[] | TransactionPaginatedResponse> {
     return await this.transactionsService.findAll(filters);
   }
 

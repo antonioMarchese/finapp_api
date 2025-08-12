@@ -6,6 +6,7 @@ import { inMemoCategories, inMemoTransactions } from './memo.db';
 import UpdateTransactionDTO from 'src/types/transactions/updateTransactionDTO';
 import TransactionFilter from 'src/types/transactions/transactionsFilter';
 import buildInMemoTransactionFilter from 'src/utils/buildTransactionsFilter';
+import TransactionStats from 'src/types/transactions/transactionsStats';
 
 export class InMemoTransactionsRepository extends TransactionsRepository {
   private lastId: number = 1;
@@ -37,7 +38,7 @@ export class InMemoTransactionsRepository extends TransactionsRepository {
 
   async findAllAndCount(
     filters?: TransactionFilter,
-  ): Promise<{ transactions: TransactionDTO[]; count: number }> {
+  ): Promise<TransactionStats> {
     let transactions = [...inMemoTransactions];
     let count = transactions.length;
 
@@ -54,6 +55,12 @@ export class InMemoTransactionsRepository extends TransactionsRepository {
     return await Promise.resolve({
       transactions: transactions.map((transaction) => this.toDTO(transaction)),
       count,
+      income: transactions.reduce((acc, transaction) => {
+        return acc + transaction.getAmount();
+      }, 0),
+      expense: transactions.reduce((acc, transaction) => {
+        return acc + transaction.getAmount();
+      }, 0),
     });
   }
 

@@ -1,6 +1,7 @@
 import CreateTransactionDTO from 'src/types/transactions/createTransactionDTO';
 import TransactionDTO from 'src/types/transactions/transactionDTO';
 import TransactionFilter from 'src/types/transactions/transactionsFilter';
+import TransactionStats from 'src/types/transactions/transactionsStats';
 import UpdateTransactionDTO from 'src/types/transactions/updateTransactionDTO';
 
 export default abstract class TransactionsRepository {
@@ -17,6 +18,6 @@ export default abstract class TransactionsRepository {
 
   abstract findAllAndCount(
     filters?: TransactionFilter,
-  ): Promise<{ transactions: TransactionDTO[]; count: number }>;
+  ): Promise<TransactionStats>;
   abstract findById(id: number): Promise<TransactionDTO | null>;
 }

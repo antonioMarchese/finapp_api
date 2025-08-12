@@ -6,6 +6,7 @@ import TransactionFilter from 'src/types/transactions/transactionsFilter';
 import { PrismaService } from 'src/services/prisma.service';
 import { Injectable } from '@nestjs/common';
 import { Prisma } from 'generated/prisma';
+import TransactionStats from 'src/types/transactions/transactionsStats';
 
 @Injectable()
 export class DBTransactionsRepository extends TransactionsRepository {
@@ -45,6 +46,23 @@ export class DBTransactionsRepository extends TransactionsRepository {
     }),
   };
 
+  private async getTypeAmount(
+    type: 'income' | 'expense',
+    filters,
+  ): Promise<number> {
+    const amount = await this.prismaService.transaction.aggregate({
+      _sum: {
+        amount: true,
+      },
+      where: {
+        ...filters,
+        type,
+      },
+    });
+
+    return amount._sum.amount ?? 0;
+  }
+
   private buildFilters(filters: TransactionFilter) {
     return Object.keys(filters)
       .filter((k) => filters[k] && k !== 'page')
@@ -58,7 +76,7 @@ export class DBTransactionsRepository extends TransactionsRepository {
 
   async findAllAndCount(
     filters?: TransactionFilter,
-  ): Promise<{ transactions: TransactionDTO[]; count: number }> {
+  ): Promise<TransactionStats> {
     const filtersDict = this.buildFilters(filters ?? {});
 
     let queryOptions: Prisma.TransactionFindManyArgs = {};
@@ -83,9 +101,12 @@ export class DBTransactionsRepository extends TransactionsRepository {
         },
       },
       orderBy: {
-        dueDate: 'desc',
+        createdAt: 'desc',
       },
     });
+    const incomeAmount = await this.getTypeAmount('income', filtersDict);
+    const expenseAmount = await this.getTypeAmount('expense', filtersDict);
+
     const count = await this.prismaService.transaction.count({
       where: filtersDict,
     });
@@ -93,6 +114,8 @@ export class DBTransactionsRepository extends TransactionsRepository {
     return await Promise.resolve({
       transactions: transactions as TransactionDTO[],
       count,
+      income: incomeAmount,
+      expense: expenseAmount,
     });
   }
 

@@ -9,6 +9,7 @@ import {
 import { NotFoundException } from '@nestjs/common';
 import CreateTransactionDTO from 'src/types/transactions/createTransactionDTO';
 import UpdateTransactionDTO from 'src/types/transactions/updateTransactionDTO';
+import TransactionFilter from 'src/types/transactions/transactionsFilter';
 
 describe('TransactionsController', () => {
   let controller: TransactionsController;
@@ -28,8 +29,25 @@ describe('TransactionsController', () => {
     },
   };
 
+  const paginatedResponse = {
+    page: 1,
+    next: 2,
+    prev: null,
+    count: 6,
+    results: [
+      {
+        ...mockTransaction,
+      },
+    ],
+    income: 100,
+    expense: 0,
+  };
+
   const mockTransactionsService = {
-    findAll: jest.fn(async () => {
+    findAll: jest.fn(async (filters?: TransactionFilter) => {
+      if (filters && filters.page) {
+        return await Promise.resolve(paginatedResponse);
+      }
       return await Promise.resolve([]);
     }),
     findById: jest.fn(async (id: number) => {
@@ -103,6 +121,20 @@ describe('TransactionsController', () => {
 
   it('should get all transactions', async () => {
     expect(await controller.findAll()).toEqual([]);
+  });
+
+  it('should get paginated transactions', async () => {
+    const filters = { page: 1 };
+    const result = await controller.findAll(filters);
+    expect(result).toEqual(paginatedResponse);
+    expect(result).toHaveProperty('page', 1);
+    if ('results' in result) {
+      expect(Array.isArray(result.results)).toBe(true);
+      expect(result).toHaveProperty('income');
+      expect(result).toHaveProperty('expense');
+    } else {
+      throw new Error('Expected paginated response');
+    }
   });
 
   it('should get a transaction by id', async () => {
