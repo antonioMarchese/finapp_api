@@ -1,8 +1,7 @@
 import CreateCategoryDTO from 'src/types/categories/createCategoryDTO';
-import Category from '../entities/category';
 import CategoryDTO from 'src/types/categories/categoryDTO';
 
-export default abstract class CategoriesRepository {
+export default abstract class CategoriesRepository<Entity> {
   abstract create(createCategoryProps: CreateCategoryDTO): Promise<CategoryDTO>;
   abstract update(id: number, props: CreateCategoryDTO): Promise<CategoryDTO>;
   abstract remove(id: number): Promise<null>;
@@ -11,5 +10,5 @@ export default abstract class CategoriesRepository {
   abstract findById(id: number): Promise<CategoryDTO | null>;
   abstract findBySlug(slug: string): Promise<CategoryDTO | null>;
 
-  abstract toDTO(category: Category): CategoryDTO;
+  abstract toDTO(category: Entity): CategoryDTO;
 }

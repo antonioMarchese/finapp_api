@@ -6,10 +6,13 @@ import {
   Param,
   Post,
   Put,
+  Query,
 } from '@nestjs/common';
 import { TransactionsService } from 'src/services/transactions.service';
 import CreateTransactionDTO from 'src/types/transactions/createTransactionDTO';
 import TransactionDTO from 'src/types/transactions/transactionDTO';
+import TransactionPaginatedResponse from 'src/types/transactions/transactionPaginatedResponse';
+import TransactionFilter from 'src/types/transactions/transactionsFilter';
 import UpdateTransactionDTO from 'src/types/transactions/updateTransactionDTO';
 
 @Controller()
@@ -17,8 +20,10 @@ export class TransactionsController {
   constructor(private readonly transactionsService: TransactionsService) {}
 
   @Get('transactions')
-  async findAll(): Promise<TransactionDTO[]> {
-    return await this.transactionsService.findAll();
+  async findAll(
+    @Query() filters?: TransactionFilter,
+  ): Promise<TransactionDTO[] | TransactionPaginatedResponse> {
+    return await this.transactionsService.findAll(filters);
   }
 
   @Get('transactions/:id')

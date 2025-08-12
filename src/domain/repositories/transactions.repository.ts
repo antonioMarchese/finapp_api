@@ -1,8 +1,12 @@
 import CreateTransactionDTO from 'src/types/transactions/createTransactionDTO';
 import TransactionDTO from 'src/types/transactions/transactionDTO';
+import TransactionFilter from 'src/types/transactions/transactionsFilter';
+import TransactionStats from 'src/types/transactions/transactionsStats';
 import UpdateTransactionDTO from 'src/types/transactions/updateTransactionDTO';
 
-export default abstract class TransactionsRepository<EntityType = any> {
+export default abstract class TransactionsRepository {
+  itemsPerPage: number;
+
   abstract create(
     createTransactionProps: CreateTransactionDTO,
   ): Promise<TransactionDTO>;
@@ -12,7 +16,8 @@ export default abstract class TransactionsRepository<EntityType = any> {
   ): Promise<TransactionDTO | null>;
   abstract remove(id: number): Promise<null>;
 
-  abstract findAll(): Promise<TransactionDTO[]>;
+  abstract findAllAndCount(
+    filters?: TransactionFilter,
+  ): Promise<TransactionStats>;
   abstract findById(id: number): Promise<TransactionDTO | null>;
-  abstract toDTO(transaction: EntityType): TransactionDTO;
 }

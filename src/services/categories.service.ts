@@ -1,4 +1,5 @@
 import { Injectable } from '@nestjs/common';
+import { Category } from 'generated/prisma';
 import CategoriesRepository from 'src/domain/repositories/categories.repository';
 import CategoryDTO from 'src/types/categories/categoryDTO';
 import CreateCategoryDTO from 'src/types/categories/createCategoryDTO';
@@ -6,7 +7,7 @@ import slugfy from 'src/utils/slugify';
 
 @Injectable()
 export class CategoriesService {
-  constructor(private readonly repository: CategoriesRepository) {}
+  constructor(private readonly repository: CategoriesRepository<Category>) {}
 
   async create(createCategoryProps: CreateCategoryDTO): Promise<CategoryDTO> {
     const existingSlug = await this.repository.findBySlug(

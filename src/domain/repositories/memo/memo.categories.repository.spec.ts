@@ -5,7 +5,7 @@ import { InMemoCategoriesRepository } from './memo.categories.repository';
 import Category from 'src/domain/entities/category';
 
 describe('InMemoCategoriesRepository', () => {
-  let repository: CategoriesRepository;
+  let repository: CategoriesRepository<Category>;
   const baseCategorySchema = {
     id: expect.any(Number),
     title: expect.any(String),

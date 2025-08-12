@@ -4,14 +4,64 @@ import TransactionDTO from 'src/types/transactions/transactionDTO';
 import CreateTransactionDTO from 'src/types/transactions/createTransactionDTO';
 import { inMemoCategories, inMemoTransactions } from './memo.db';
 import UpdateTransactionDTO from 'src/types/transactions/updateTransactionDTO';
+import TransactionFilter from 'src/types/transactions/transactionsFilter';
+import buildInMemoTransactionFilter from 'src/utils/buildTransactionsFilter';
+import TransactionStats from 'src/types/transactions/transactionsStats';
 
-export class InMemoTransactionsRepository extends TransactionsRepository<Transaction> {
+export class InMemoTransactionsRepository extends TransactionsRepository {
   private lastId: number = 1;
+  itemsPerPage: number = 5;
 
-  async findAll(): Promise<TransactionDTO[]> {
-    return await Promise.resolve(
-      inMemoTransactions.map((transaction) => this.toDTO(transaction)),
-    );
+  private filterTransactions(
+    filters: TransactionFilter,
+    transactions: Transaction[],
+  ) {
+    return Object.keys(filters)
+      .filter((k) => k !== 'page')
+      .reduce(
+        (filteredTransactions, key) => {
+          return [
+            ...filteredTransactions.filter((t) =>
+              buildInMemoTransactionFilter(key)(t, filters[key] as string),
+            ),
+          ];
+        },
+        [...transactions],
+      );
+  }
+
+  private paginateTransactions(transactions: Transaction[], page: number) {
+    const startIndex = (page - 1) * this.itemsPerPage;
+    const endIndex = startIndex + this.itemsPerPage;
+    return transactions.slice(startIndex, endIndex);
+  }
+
+  async findAllAndCount(
+    filters?: TransactionFilter,
+  ): Promise<TransactionStats> {
+    let transactions = [...inMemoTransactions];
+    let count = transactions.length;
+
+    if (filters) {
+      const { page } = filters;
+      transactions = this.filterTransactions(filters, transactions);
+      count = transactions.length;
+
+      if (page) {
+        transactions = this.paginateTransactions(transactions, page);
+      }
+    }
+
+    return await Promise.resolve({
+      transactions: transactions.map((transaction) => this.toDTO(transaction)),
+      count,
+      income: transactions.reduce((acc, transaction) => {
+        return acc + transaction.getAmount();
+      }, 0),
+      expense: transactions.reduce((acc, transaction) => {
+        return acc + transaction.getAmount();
+      }, 0),
+    });
   }
 
   async findById(id: number): Promise<TransactionDTO | null> {
