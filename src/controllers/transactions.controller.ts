@@ -9,6 +9,7 @@ import {
   Query,
 } from '@nestjs/common';
 import { TransactionsService } from 'src/services/transactions.service';
+import TypedAmountByCategory from 'src/types/transactions/amountByCategory';
 import CreateTransactionDTO from 'src/types/transactions/createTransactionDTO';
 import TransactionDTO from 'src/types/transactions/transactionDTO';
 import TransactionPaginatedResponse from 'src/types/transactions/transactionPaginatedResponse';
@@ -46,5 +47,12 @@ export class TransactionsController {
     @Body() props: UpdateTransactionDTO,
   ): Promise<TransactionDTO | null> {
     return await this.transactionsService.update(Number(id), props);
+  }
+
+  @Get('categories-amount')
+  async getAmountByCategory(
+    @Query() filters?: TransactionFilter,
+  ): Promise<TypedAmountByCategory> {
+    return await this.transactionsService.getAmountByCategory(filters);
   }
 }

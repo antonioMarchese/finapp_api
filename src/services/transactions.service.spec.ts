@@ -10,6 +10,7 @@ import Category from 'src/domain/entities/category';
 import Transaction from 'src/domain/entities/transaction';
 import UpdateTransactionDTO from 'src/types/transactions/updateTransactionDTO';
 import { transactionSchema } from 'src/types/transactions/testSchemas';
+import TypedAmountByCategory from 'src/types/transactions/amountByCategory';
 
 describe('TransactionsService', () => {
   let service: TransactionsService;
@@ -110,6 +111,21 @@ describe('TransactionsService', () => {
       );
       return await Promise.resolve(null);
     }),
+    getAmountByCategory: jest.fn(async (): Promise<TypedAmountByCategory> => {
+      const typedAmountByCategory: TypedAmountByCategory = {
+        income: {},
+        expense: {},
+        investment: {},
+      };
+      for (const transaction of inMemoTransactions) {
+        const category = mockCategory.getTitle();
+        typedAmountByCategory[transaction.getType()][category] =
+          (typedAmountByCategory[transaction.getType()][category] || 0) +
+          transaction.getAmount();
+      }
+
+      return await Promise.resolve(typedAmountByCategory);
+    }),
   };
 
   const mockCategoriesRepository = {
@@ -179,6 +195,14 @@ describe('TransactionsService', () => {
   it('should return all transactions', async () => {
     expect(await service.findAll()).toHaveLength(inMemoTransactions.length);
     expect(mockTransactionsRepository.findAllAndCount).toHaveBeenCalled();
+  });
+
+  it('should return amount by category typed by transaction type', async () => {
+    const result = await service.getAmountByCategory();
+    expect(result).toHaveProperty('investment');
+    expect(result).toHaveProperty('expense');
+    expect(result).toHaveProperty('income');
+    expect(mockTransactionsRepository.getAmountByCategory).toHaveBeenCalled();
   });
 
   it('should find a transaction by its id', async () => {

@@ -10,9 +10,16 @@ import { NotFoundException } from '@nestjs/common';
 import CreateTransactionDTO from 'src/types/transactions/createTransactionDTO';
 import UpdateTransactionDTO from 'src/types/transactions/updateTransactionDTO';
 import TransactionFilter from 'src/types/transactions/transactionsFilter';
+import { inMemoTransactions } from 'src/domain/repositories/memo/memo.db';
 
 describe('TransactionsController', () => {
   let controller: TransactionsController;
+
+  const mockCategory = {
+    id: 1,
+    title: 'Supermarket',
+    color: '#e62e1ac2',
+  };
 
   const mockTransaction: TransactionDTO = {
     id: 1,
@@ -22,11 +29,7 @@ describe('TransactionsController', () => {
     createdAt: new Date(),
     updatedAt: new Date(),
     description: 'Test transaction',
-    category: {
-      id: 1,
-      title: 'Supermarket',
-      color: '#e62e1ac2',
-    },
+    category: mockCategory,
   };
 
   const paginatedResponse = {
@@ -65,11 +68,7 @@ describe('TransactionsController', () => {
           description: props.description,
           createdAt: new Date(),
           updatedAt: new Date(),
-          category: {
-            id: 1,
-            title: 'test',
-            color: '#123123',
-          },
+          category: mockCategory,
         });
       },
     ),
@@ -99,6 +98,20 @@ describe('TransactionsController', () => {
         });
       },
     ),
+    getAmountByCategory: jest.fn(async () => {
+      const amountByCategory = {
+        expense: {
+          [mockCategory.title]: inMemoTransactions.reduce(
+            (acc, t) => acc + t.getAmount(),
+            0,
+          ),
+        },
+        income: {},
+        investment: {},
+      };
+
+      return await Promise.resolve(amountByCategory);
+    }),
   };
 
   beforeEach(async () => {
@@ -215,5 +228,11 @@ describe('TransactionsController', () => {
     } catch (error) {
       expect(error).toEqual(new Error('Transaction not found'));
     }
+  });
+
+  it('should return amount by category', async () => {
+    const result = await controller.getAmountByCategory();
+    expect(result).toHaveProperty('expense');
+    expect(mockTransactionsService.getAmountByCategory).toHaveBeenCalled();
   });
 });

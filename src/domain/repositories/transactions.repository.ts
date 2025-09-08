@@ -1,3 +1,4 @@
+import TypedAmountByCategory from 'src/types/transactions/amountByCategory';
 import CreateTransactionDTO from 'src/types/transactions/createTransactionDTO';
 import TransactionDTO from 'src/types/transactions/transactionDTO';
 import TransactionFilter from 'src/types/transactions/transactionsFilter';
@@ -20,4 +21,7 @@ export default abstract class TransactionsRepository {
     filters?: TransactionFilter,
   ): Promise<TransactionStats>;
   abstract findById(id: number): Promise<TransactionDTO | null>;
+  abstract getAmountByCategory(
+    filters?: TransactionFilter,
+  ): Promise<TypedAmountByCategory>;
 }
