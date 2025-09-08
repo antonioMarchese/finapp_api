@@ -7,6 +7,7 @@ import UpdateTransactionDTO from 'src/types/transactions/updateTransactionDTO';
 import TransactionFilter from 'src/types/transactions/transactionsFilter';
 import buildInMemoTransactionFilter from 'src/utils/buildTransactionsFilter';
 import TransactionStats from 'src/types/transactions/transactionsStats';
+import TypedAmountByCategory from 'src/types/transactions/amountByCategory';
 
 export class InMemoTransactionsRepository extends TransactionsRepository {
   private lastId: number = 1;
@@ -123,6 +124,31 @@ export class InMemoTransactionsRepository extends TransactionsRepository {
     }
 
     return await Promise.resolve(null);
+  }
+
+  async getAmountByCategory(
+    filters?: TransactionFilter,
+  ): Promise<TypedAmountByCategory> {
+    const amountByCategory = inMemoTransactions.reduce((acc, transaction) => {
+      const category = inMemoCategories.find(
+        (category) => category.getId() === transaction.getCategoryId(),
+      )!;
+      const title = category.getTitle();
+      const transactionType = transaction.getType();
+      const transactionAmount = transaction.getAmount();
+
+      return {
+        ...acc,
+        [transactionType]: {
+          ...acc[transactionType],
+          title: acc[transactionType][title]
+            ? acc[transactionType][title] + transactionAmount
+            : transactionAmount,
+        },
+      };
+    }, {} as TypedAmountByCategory);
+
+    return Promise.resolve(amountByCategory);
   }
 
   toDTO(transaction: Transaction): TransactionDTO {

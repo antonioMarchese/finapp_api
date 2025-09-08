@@ -2,6 +2,7 @@ import { Injectable, NotFoundException, HttpException } from '@nestjs/common';
 import { Category } from 'generated/prisma';
 import CategoriesRepository from 'src/domain/repositories/categories.repository';
 import TransactionsRepository from 'src/domain/repositories/transactions.repository';
+import TypedAmountByCategory from 'src/types/transactions/amountByCategory';
 import CreateTransactionDTO from 'src/types/transactions/createTransactionDTO';
 import TransactionDTO from 'src/types/transactions/transactionDTO';
 import TransactionPaginatedResponse from 'src/types/transactions/transactionPaginatedResponse';
@@ -100,5 +101,11 @@ export class TransactionsService {
     if (!transaction) throw new Error('Transaction not found');
 
     return await this.transactionsRepo.remove(id);
+  }
+
+  async getAmountByCategory(
+    filters?: TransactionFilter,
+  ): Promise<TypedAmountByCategory> {
+    return await this.transactionsRepo.getAmountByCategory(filters);
   }
 }

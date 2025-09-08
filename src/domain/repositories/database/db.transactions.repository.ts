@@ -7,6 +7,7 @@ import { PrismaService } from 'src/services/prisma.service';
 import { Injectable } from '@nestjs/common';
 import { Prisma } from 'generated/prisma';
 import TransactionStats from 'src/types/transactions/transactionsStats';
+import TypedAmountByCategory from 'src/types/transactions/amountByCategory';
 
 @Injectable()
 export class DBTransactionsRepository extends TransactionsRepository {
@@ -20,24 +21,6 @@ export class DBTransactionsRepository extends TransactionsRepository {
     string,
     (value: string) => Prisma.TransactionWhereInput
   > = {
-    startDate: (value: string) => {
-      const startDate = new Date(value);
-      startDate.setUTCHours(0, 0, 0, 0);
-      return {
-        dueDate: {
-          gte: startDate,
-        },
-      };
-    },
-    endDate: (value: string) => {
-      const endDate = new Date(value);
-      endDate.setUTCHours(23, 59, 59, 0);
-      return {
-        dueDate: {
-          lte: endDate,
-        },
-      };
-    },
     type: (value: 'expense' | 'income' | 'investment') => ({
       type: value,
     }),
@@ -47,7 +30,7 @@ export class DBTransactionsRepository extends TransactionsRepository {
   };
 
   private async getTypeAmount(
-    type: 'income' | 'expense',
+    type: 'income' | 'expense' | 'investment',
     filters,
   ): Promise<number> {
     const amount = await this.prismaService.transaction.aggregate({
@@ -64,20 +47,54 @@ export class DBTransactionsRepository extends TransactionsRepository {
   }
 
   private buildFilters(filters: TransactionFilter) {
-    return Object.keys(filters)
+    const queryOptions: Prisma.TransactionWhereInput = {};
+    const dueDateConditions: { gte?: Date; lte?: Date } = {};
+    Object.keys(filters)
       .filter((k) => filters[k] && k !== 'page')
-      .reduce((queryOptions: Prisma.TransactionWhereInput, key) => {
-        return {
-          ...queryOptions,
-          ...this.filterHashMapper[key](filters[key] as string),
-        };
-      }, {} as Prisma.TransactionWhereInput);
+      .forEach((key) => {
+        if (key === 'startDate') {
+          const startDate = new Date(filters[key] as Date);
+          startDate.setUTCHours(0, 0, 0, 0);
+          dueDateConditions.gte = startDate;
+        } else if (key === 'endDate') {
+          const endDate = new Date(filters[key] as Date);
+          endDate.setUTCHours(23, 59, 59, 0);
+          dueDateConditions.lte = endDate;
+        } else {
+          const filterOption = this.filterHashMapper[key](
+            filters[key] as string,
+          );
+          Object.assign(queryOptions, filterOption);
+        }
+      });
+    if (Object.keys(dueDateConditions).length > 0) {
+      queryOptions.dueDate = dueDateConditions;
+    }
+    return queryOptions;
+  }
+
+  private async getCategoriesMapper(): Promise<Record<string, string>> {
+    const categories = await this.prismaService.category.findMany({
+      select: {
+        id: true,
+        title: true,
+      },
+    });
+
+    return categories.reduce(
+      (acc, c) => ({
+        ...acc,
+        [c.id]: c.title,
+      }),
+      {},
+    );
   }
 
   async findAllAndCount(
     filters?: TransactionFilter,
   ): Promise<TransactionStats> {
     const filtersDict = this.buildFilters(filters ?? {});
+    console.info({ filtersDict });
 
     let queryOptions: Prisma.TransactionFindManyArgs = {};
 
@@ -100,9 +117,14 @@ export class DBTransactionsRepository extends TransactionsRepository {
           },
         },
       },
-      orderBy: {
-        createdAt: 'desc',
-      },
+      orderBy: [
+        {
+          dueDate: 'desc',
+        },
+        {
+          createdAt: 'desc',
+        },
+      ],
     });
     const incomeAmount = await this.getTypeAmount('income', filtersDict);
     const expenseAmount = await this.getTypeAmount('expense', filtersDict);
@@ -195,5 +217,37 @@ export class DBTransactionsRepository extends TransactionsRepository {
     await this.prismaService.transaction.delete({ where: { id } });
 
     return await Promise.resolve(null);
+  }
+
+  async getAmountByCategory(
+    filters?: TransactionFilter,
+  ): Promise<TypedAmountByCategory> {
+    const filtersDict = this.buildFilters(filters ?? {});
+    const categoryMapper = await this.getCategoriesMapper();
+
+    const groupedTransactions = await this.prismaService.transaction.groupBy({
+      by: ['categoryId', 'type'],
+      where: filtersDict,
+      _sum: {
+        amount: true,
+      },
+    });
+
+    const typedAmountByCategory = groupedTransactions.reduce(
+      (acc, t) => ({
+        ...acc,
+        [t.type]: {
+          ...acc[t.type],
+          [categoryMapper[t.categoryId]]: t._sum.amount,
+        },
+      }),
+      {
+        income: {},
+        expense: {},
+        investment: {},
+      } as TypedAmountByCategory,
+    );
+
+    return typedAmountByCategory;
   }
 }
