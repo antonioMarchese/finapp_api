@@ -94,8 +94,6 @@ export class DBTransactionsRepository extends TransactionsRepository {
     filters?: TransactionFilter,
   ): Promise<TransactionStats> {
     const filtersDict = this.buildFilters(filters ?? {});
-    console.info({ filtersDict });
-
     let queryOptions: Prisma.TransactionFindManyArgs = {};
 
     if (filters?.page) {

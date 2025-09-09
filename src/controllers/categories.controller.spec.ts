@@ -5,6 +5,7 @@ import slugfy from 'src/utils/slugify';
 
 import CreateCategoryDTO from 'src/types/categories/createCategoryDTO';
 import UpdateCategoryDTO from 'src/types/categories/updateCategoryDTO';
+import MonthlyCategoryTotalsDTO from 'src/types/categories/monthlyCategoryTotalsDTO';
 
 describe('CategoriesController', () => {
   let controller: CategoriesController;
@@ -53,6 +54,19 @@ describe('CategoriesController', () => {
         createdAt: new Date(),
         updatedAt: new Date(),
       });
+    }),
+    getMonthlyTotals: jest.fn(async () => {
+      const mockTotals: MonthlyCategoryTotalsDTO = {
+        1: {
+          title: 'Food',
+          color: '#FF5733',
+          reports: {
+            '09-25': 150.5,
+            '08-25': 200.0,
+          },
+        },
+      };
+      return await Promise.resolve(mockTotals);
     }),
   };
 
@@ -130,5 +144,21 @@ describe('CategoriesController', () => {
     } catch (error) {
       expect(error).toEqual(new Error('Category not found'));
     }
+  });
+
+  it('should get monthly totals', async () => {
+    const expectedTotals: MonthlyCategoryTotalsDTO = {
+      1: {
+        title: 'Food',
+        color: '#FF5733',
+        reports: {
+          '09-25': 150.5,
+          '08-25': 200.0,
+        },
+      },
+    };
+
+    expect(await controller.getMonthlyTotals()).toEqual(expectedTotals);
+    expect(mockCategoriesService.getMonthlyTotals).toHaveBeenCalled();
   });
 });

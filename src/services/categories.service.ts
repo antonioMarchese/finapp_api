@@ -3,6 +3,7 @@ import { Category } from 'generated/prisma';
 import CategoriesRepository from 'src/domain/repositories/categories.repository';
 import CategoryDTO from 'src/types/categories/categoryDTO';
 import CreateCategoryDTO from 'src/types/categories/createCategoryDTO';
+import MonthlyCategoryTotalsDTO from 'src/types/categories/monthlyCategoryTotalsDTO';
 import slugfy from 'src/utils/slugify';
 
 @Injectable()
@@ -47,5 +48,9 @@ export class CategoriesService {
 
   async findAll(): Promise<CategoryDTO[]> {
     return await this.repository.findAll();
+  }
+
+  async getMonthlyTotals(): Promise<MonthlyCategoryTotalsDTO> {
+    return await this.repository.getMonthlyTotals();
   }
 }
