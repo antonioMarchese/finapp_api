@@ -3,6 +3,7 @@ import CategoriesRepository from 'src/domain/repositories/categories.repository'
 import { CategoriesService } from 'src/services/categories.service';
 import CategoryDTO from 'src/types/categories/categoryDTO';
 import CreateCategoryDTO from 'src/types/categories/createCategoryDTO';
+import MonthlyCategoryTotalsDTO from 'src/types/categories/monthlyCategoryTotalsDTO';
 import slugfy from 'src/utils/slugify';
 
 describe('CategoriesService', () => {
@@ -57,6 +58,19 @@ describe('CategoriesService', () => {
         1,
       );
       return await Promise.resolve(null);
+    }),
+    getMonthlyTotals: jest.fn(async () => {
+      const mockTotals: MonthlyCategoryTotalsDTO = {
+        1: {
+          title: 'Food',
+          color: '#FF5733',
+          reports: {
+            '09-25': 150.5,
+            '08-25': 200.0,
+          },
+        },
+      };
+      return await Promise.resolve(mockTotals);
     }),
   };
 
@@ -193,5 +207,21 @@ describe('CategoriesService', () => {
     } catch (error) {
       expect(error).toEqual(new Error('Category not found'));
     }
+  });
+
+  it('should get monthly totals', async () => {
+    const expectedTotals: MonthlyCategoryTotalsDTO = {
+      1: {
+        title: 'Food',
+        color: '#FF5733',
+        reports: {
+          '09-25': 150.5,
+          '08-25': 200.0,
+        },
+      },
+    };
+
+    expect(await service.getMonthlyTotals()).toEqual(expectedTotals);
+    expect(mockCategoriesRepository.getMonthlyTotals).toHaveBeenCalled();
   });
 });

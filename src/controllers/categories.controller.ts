@@ -13,6 +13,7 @@ import { CategoriesService } from '../services/categories.service';
 import CategoryDTO from 'src/types/categories/categoryDTO';
 import CreateCategoryDTO from 'src/types/categories/createCategoryDTO';
 import UpdateCategoryDTO from 'src/types/categories/updateCategoryDTO';
+import MonthlyCategoryTotalsDTO from 'src/types/categories/monthlyCategoryTotalsDTO';
 
 @Controller()
 export class CategoriesController {
@@ -68,6 +69,24 @@ export class CategoriesController {
           error: message,
         },
         HttpStatus.BAD_REQUEST,
+      );
+    }
+  }
+
+  @Get('categories-monthly-totals')
+  async getMonthlyTotals(): Promise<MonthlyCategoryTotalsDTO> {
+    try {
+      return await this.categoriesService.getMonthlyTotals();
+    } catch (error) {
+      let message: string = 'Error retrieving monthly totals';
+      if (error instanceof Error) message = error.message;
+
+      throw new HttpException(
+        {
+          status: 500,
+          error: message,
+        },
+        HttpStatus.INTERNAL_SERVER_ERROR,
       );
     }
   }

@@ -2,6 +2,7 @@ import CreateCategoryDTO from 'src/types/categories/createCategoryDTO';
 import CategoriesRepository from '../categories.repository';
 import Category from 'src/domain/entities/category';
 import CategoryDTO from 'src/types/categories/categoryDTO';
+import MonthlyCategoryTotalsDTO from 'src/types/categories/monthlyCategoryTotalsDTO';
 import slugfy from 'src/utils/slugify';
 import { inMemoCategories } from './memo.db';
 
@@ -79,6 +80,30 @@ export class InMemoCategoriesRepository extends CategoriesRepository<Category> {
     );
 
     return await Promise.resolve(null);
+  }
+
+  async getMonthlyTotals(): Promise<MonthlyCategoryTotalsDTO> {
+    // Mock data for testing
+    const mockResult: MonthlyCategoryTotalsDTO = {
+      1: {
+        title: 'Food',
+        color: '#FF5733',
+        reports: {
+          '09-25': 150.5,
+          '08-25': 200.0,
+        },
+      },
+      2: {
+        title: 'Transport',
+        color: '#33FF57',
+        reports: {
+          '09-25': 75.25,
+          '07-25': 100.0,
+        },
+      },
+    };
+
+    return await Promise.resolve(mockResult);
   }
 
   toDTO(category: Category): CategoryDTO {

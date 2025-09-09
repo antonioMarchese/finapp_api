@@ -1,6 +1,7 @@
 import CreateCategoryDTO from 'src/types/categories/createCategoryDTO';
 import CategoriesRepository from '../categories.repository';
 import CategoryDTO from 'src/types/categories/categoryDTO';
+import MonthlyCategoryTotalsDTO from 'src/types/categories/monthlyCategoryTotalsDTO';
 import slugfy from 'src/utils/slugify';
 import { Injectable } from '@nestjs/common';
 import { PrismaService } from 'src/services/prisma.service';
@@ -69,6 +70,45 @@ export class DBCategoriesRepository extends CategoriesRepository<Category> {
     await this.prismaService.category.delete({ where: { id } });
 
     return await Promise.resolve(null);
+  }
+
+  async getMonthlyTotals(): Promise<MonthlyCategoryTotalsDTO> {
+    const rawResults = await this.prismaService.$queryRaw<
+      Array<{
+        categoryid: number;
+        title: string;
+        color: string | null;
+        month: string;
+        total: number;
+      }>
+    >`
+      SELECT 
+        c.id as categoryid,
+        c.title,
+        c.color,
+        TO_CHAR(t."dueDate", 'MM-YY') as month,
+        SUM(t.amount) as total
+      FROM categories c
+      LEFT JOIN transactions t ON c.id = t."categoryId"
+      WHERE t."dueDate" IS NOT NULL
+      GROUP BY c.id, c.title, c.color, TO_CHAR(t."dueDate", 'MM-YY')
+      ORDER BY c.id, month
+    `;
+
+    const result: MonthlyCategoryTotalsDTO = {};
+
+    rawResults.forEach((row) => {
+      if (!result[row.categoryid]) {
+        result[row.categoryid] = {
+          title: row.title,
+          color: row.color,
+          reports: {},
+        };
+      }
+      result[row.categoryid].reports[row.month] = row.total;
+    });
+
+    return result;
   }
 
   toDTO(category: Category): CategoryDTO {
