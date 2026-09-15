@@ -61,12 +61,14 @@ describe('CategoriesService', () => {
     }),
     getMonthlyTotals: jest.fn(async () => {
       const mockTotals: MonthlyCategoryTotalsDTO = {
-        1: {
-          title: 'Food',
-          color: '#FF5733',
-          reports: {
-            '09-25': 150.5,
-            '08-25': 200.0,
+        BRL: {
+          1: {
+            title: 'Food',
+            color: '#FF5733',
+            reports: {
+              '09-25': 150.5,
+              '08-25': 200.0,
+            },
           },
         },
       };
@@ -211,12 +213,14 @@ describe('CategoriesService', () => {
 
   it('should get monthly totals', async () => {
     const expectedTotals: MonthlyCategoryTotalsDTO = {
-      1: {
-        title: 'Food',
-        color: '#FF5733',
-        reports: {
-          '09-25': 150.5,
-          '08-25': 200.0,
+      BRL: {
+        1: {
+          title: 'Food',
+          color: '#FF5733',
+          reports: {
+            '09-25': 150.5,
+            '08-25': 200.0,
+          },
         },
       },
     };

@@ -7,8 +7,12 @@ import { PrismaService } from 'src/services/prisma.service';
 import { Injectable } from '@nestjs/common';
 import { Prisma } from 'generated/prisma';
 import TransactionStats from 'src/types/transactions/transactionsStats';
-import TypedAmountByCategory from 'src/types/transactions/amountByCategory';
+import AmountByCategoryResponse, {
+  TypedAmountByCategory,
+} from 'src/types/transactions/amountByCategory';
 import MonthlySummaryDTO from 'src/types/transactions/monthlySummaryDTO';
+import { CurrencyTotals } from 'src/types/transactions/transactionPaginatedResponse';
+import { Currency } from 'src/types/currency';
 
 @Injectable()
 export class DBTransactionsRepository extends TransactionsRepository {
@@ -28,24 +32,10 @@ export class DBTransactionsRepository extends TransactionsRepository {
     categoryId: (value: string) => ({
       categoryId: Number(value),
     }),
+    currency: (value: Currency) => ({
+      currency: value,
+    }),
   };
-
-  private async getTypeAmount(
-    type: 'income' | 'expense' | 'investment',
-    filters,
-  ): Promise<number> {
-    const amount = await this.prismaService.transaction.aggregate({
-      _sum: {
-        amount: true,
-      },
-      where: {
-        ...filters,
-        type,
-      },
-    });
-
-    return amount._sum.amount ?? 0;
-  }
 
   private buildFilters(filters: TransactionFilter) {
     const queryOptions: Prisma.TransactionWhereInput = {};
@@ -62,16 +52,37 @@ export class DBTransactionsRepository extends TransactionsRepository {
           endDate.setUTCHours(23, 59, 59, 0);
           dueDateConditions.lte = endDate;
         } else {
-          const filterOption = this.filterHashMapper[key](
-            filters[key] as string,
-          );
-          Object.assign(queryOptions, filterOption);
+          // Ignore query params that aren't filters (page, month, clear…)
+          // instead of throwing on an unknown key.
+          const buildFilter = this.filterHashMapper[key];
+          if (!buildFilter) return;
+
+          Object.assign(queryOptions, buildFilter(filters[key] as string));
         }
       });
     if (Object.keys(dueDateConditions).length > 0) {
       queryOptions.dueDate = dueDateConditions;
     }
     return queryOptions;
+  }
+
+  // Income and expense are summed per currency — amounts in different
+  // currencies are never added together.
+  private async getTotalsByCurrency(
+    filters: Prisma.TransactionWhereInput,
+  ): Promise<Record<string, CurrencyTotals>> {
+    const grouped = await this.prismaService.transaction.groupBy({
+      by: ['currency', 'type'],
+      where: filters,
+      _sum: { amount: true },
+    });
+
+    return grouped.reduce<Record<string, CurrencyTotals>>((acc, row) => {
+      if (row.type !== 'income' && row.type !== 'expense') return acc;
+      if (!acc[row.currency]) acc[row.currency] = { income: 0, expense: 0 };
+      acc[row.currency][row.type] = row._sum.amount ?? 0;
+      return acc;
+    }, {});
   }
 
   private async getCategoriesMapper(): Promise<Record<string, string>> {
@@ -125,8 +136,8 @@ export class DBTransactionsRepository extends TransactionsRepository {
         },
       ],
     });
-    const incomeAmount = await this.getTypeAmount('income', filtersDict);
-    const expenseAmount = await this.getTypeAmount('expense', filtersDict);
+
+    const totals = await this.getTotalsByCurrency(filtersDict);
 
     const count = await this.prismaService.transaction.count({
       where: filtersDict,
@@ -135,8 +146,7 @@ export class DBTransactionsRepository extends TransactionsRepository {
     return await Promise.resolve({
       transactions: transactions as TransactionDTO[],
       count,
-      income: incomeAmount,
-      expense: expenseAmount,
+      totals,
     });
   }
 
@@ -197,6 +207,7 @@ export class DBTransactionsRepository extends TransactionsRepository {
         dueDate: props.dueDate ?? transaction.dueDate,
         description: props.description ?? transaction.description,
         type: props.type ?? transaction.type,
+        currency: props.currency ?? transaction.currency,
       },
       include: {
         category: {
@@ -227,11 +238,13 @@ export class DBTransactionsRepository extends TransactionsRepository {
     const endDate = filters?.endDate
       ? this.endOfDay(new Date(filters.endDate))
       : null;
+    const currency = filters?.currency ?? null;
 
     const rows = await this.prismaService.$queryRaw<
-      Array<{ month: string; type: string; total: number }>
+      Array<{ currency: string; month: string; type: string; total: number }>
     >`
       SELECT
+        t.currency::text AS currency,
         TO_CHAR(t."dueDate", 'YYYY-MM') AS month,
         t.type::text AS type,
         SUM(t.amount)::float AS total
@@ -239,15 +252,16 @@ export class DBTransactionsRepository extends TransactionsRepository {
       WHERE
         (${startDate}::timestamp IS NULL OR t."dueDate" >= ${startDate}::timestamp)
         AND (${endDate}::timestamp IS NULL OR t."dueDate" <= ${endDate}::timestamp)
-      GROUP BY month, t.type
-      ORDER BY month
+        AND (${currency}::text IS NULL OR t.currency::text = ${currency}::text)
+      GROUP BY t.currency, month, t.type
+      ORDER BY t.currency, month
     `;
 
     const summary: MonthlySummaryDTO = {};
-    const ensureMonth = (key: string) => {
-      if (!summary[key]) summary[key] = { income: 0, expense: 0, balance: 0 };
-    };
 
+    // Every currency present gets the full month range, so a gap in one
+    // currency still renders as zero rather than disappearing from the chart.
+    const months: string[] = [];
     if (startDate && endDate) {
       const cursor = new Date(
         Date.UTC(startDate.getUTCFullYear(), startDate.getUTCMonth(), 1),
@@ -256,19 +270,31 @@ export class DBTransactionsRepository extends TransactionsRepository {
         Date.UTC(endDate.getUTCFullYear(), endDate.getUTCMonth(), 1),
       );
       while (cursor <= stop) {
-        ensureMonth(this.toMonthKey(cursor));
+        months.push(this.toMonthKey(cursor));
         cursor.setUTCMonth(cursor.getUTCMonth() + 1);
       }
     }
 
+    const ensureMonth = (curr: string, key: string) => {
+      if (!summary[curr]) summary[curr] = {};
+      if (!summary[curr][key])
+        summary[curr][key] = { income: 0, expense: 0, balance: 0 };
+    };
+
     rows.forEach((row) => {
-      ensureMonth(row.month);
-      if (row.type === 'income') summary[row.month].income = row.total;
-      else if (row.type === 'expense') summary[row.month].expense = row.total;
+      months.forEach((month) => ensureMonth(row.currency, month));
+      ensureMonth(row.currency, row.month);
+      if (row.type === 'income')
+        summary[row.currency][row.month].income = row.total;
+      else if (row.type === 'expense')
+        summary[row.currency][row.month].expense = row.total;
     });
 
-    Object.keys(summary).forEach((key) => {
-      summary[key].balance = summary[key].income - summary[key].expense;
+    Object.keys(summary).forEach((curr) => {
+      Object.keys(summary[curr]).forEach((key) => {
+        summary[curr][key].balance =
+          summary[curr][key].income - summary[curr][key].expense;
+      });
     });
 
     return summary;
@@ -294,33 +320,31 @@ export class DBTransactionsRepository extends TransactionsRepository {
 
   async getAmountByCategory(
     filters?: TransactionFilter,
-  ): Promise<TypedAmountByCategory> {
+  ): Promise<AmountByCategoryResponse> {
     const filtersDict = this.buildFilters(filters ?? {});
     const categoryMapper = await this.getCategoriesMapper();
 
     const groupedTransactions = await this.prismaService.transaction.groupBy({
-      by: ['categoryId', 'type'],
+      by: ['categoryId', 'type', 'currency'],
       where: filtersDict,
       _sum: {
         amount: true,
       },
     });
 
-    const typedAmountByCategory = groupedTransactions.reduce(
-      (acc, t) => ({
-        ...acc,
-        [t.type]: {
-          ...acc[t.type],
-          [categoryMapper[t.categoryId]]: t._sum.amount,
-        },
-      }),
-      {
-        income: {},
-        expense: {},
-        investment: {},
-      } as TypedAmountByCategory,
-    );
+    return groupedTransactions.reduce<AmountByCategoryResponse>((acc, t) => {
+      if (!acc[t.currency]) {
+        acc[t.currency] = {
+          income: {},
+          expense: {},
+          investment: {},
+        } as TypedAmountByCategory;
+      }
 
-    return typedAmountByCategory;
+      const title = categoryMapper[t.categoryId];
+      acc[t.currency]![t.type][title] = t._sum.amount ?? 0;
+
+      return acc;
+    }, {});
   }
 }

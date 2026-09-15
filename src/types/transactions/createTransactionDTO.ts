@@ -1,3 +1,4 @@
+import { Currency } from '../currency';
 import { TransactionType } from './transactionTypes';
 
 export default interface CreateTransactionDTO {
@@ -6,4 +7,6 @@ export default interface CreateTransactionDTO {
   type: TransactionType;
   categoryId: number;
   description?: string;
+  currency?: Currency;
+  fixedTransactionId?: number | null;
 }

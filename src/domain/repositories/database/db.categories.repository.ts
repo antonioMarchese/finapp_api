@@ -1,7 +1,9 @@
 import CreateCategoryDTO from 'src/types/categories/createCategoryDTO';
 import CategoriesRepository from '../categories.repository';
 import CategoryDTO from 'src/types/categories/categoryDTO';
-import MonthlyCategoryTotalsDTO from 'src/types/categories/monthlyCategoryTotalsDTO';
+import MonthlyCategoryTotalsDTO, {
+  CategoryMonthlyTotals,
+} from 'src/types/categories/monthlyCategoryTotalsDTO';
 import slugfy from 'src/utils/slugify';
 import { Injectable } from '@nestjs/common';
 import { PrismaService } from 'src/services/prisma.service';
@@ -78,6 +80,7 @@ export class DBCategoriesRepository extends CategoriesRepository<Category> {
         categoryid: number;
         title: string;
         color: string | null;
+        currency: string;
         month: string;
         total: number;
       }>
@@ -86,26 +89,30 @@ export class DBCategoriesRepository extends CategoriesRepository<Category> {
         c.id as categoryid,
         c.title,
         c.color,
+        t.currency::text as currency,
         TO_CHAR(t."dueDate", 'MM-YY') as month,
         SUM(t.amount) as total
       FROM categories c
       LEFT JOIN transactions t ON c.id = t."categoryId"
       WHERE t."dueDate" IS NOT NULL
-      GROUP BY c.id, c.title, c.color, TO_CHAR(t."dueDate", 'MM-YY')
-      ORDER BY c.id, month
+      GROUP BY c.id, c.title, c.color, t.currency, TO_CHAR(t."dueDate", 'MM-YY')
+      ORDER BY t.currency, c.id, month
     `;
 
-    const result: MonthlyCategoryTotalsDTO = {};
+    // Totals are bucketed per currency first, so values recorded in
+    // different currencies never land in the same report.
+    const result: Record<string, CategoryMonthlyTotals> = {};
 
     rawResults.forEach((row) => {
-      if (!result[row.categoryid]) {
-        result[row.categoryid] = {
+      if (!result[row.currency]) result[row.currency] = {};
+      if (!result[row.currency][row.categoryid]) {
+        result[row.currency][row.categoryid] = {
           title: row.title,
           color: row.color,
           reports: {},
         };
       }
-      result[row.categoryid].reports[row.month] = row.total;
+      result[row.currency][row.categoryid].reports[row.month] = row.total;
     });
 
     return result;

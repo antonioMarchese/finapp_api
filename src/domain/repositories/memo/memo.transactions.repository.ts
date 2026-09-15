@@ -7,8 +7,14 @@ import UpdateTransactionDTO from 'src/types/transactions/updateTransactionDTO';
 import TransactionFilter from 'src/types/transactions/transactionsFilter';
 import buildInMemoTransactionFilter from 'src/utils/buildTransactionsFilter';
 import TransactionStats from 'src/types/transactions/transactionsStats';
-import TypedAmountByCategory from 'src/types/transactions/amountByCategory';
-import MonthlySummaryDTO from 'src/types/transactions/monthlySummaryDTO';
+import AmountByCategoryResponse, {
+  TypedAmountByCategory,
+} from 'src/types/transactions/amountByCategory';
+import MonthlySummaryDTO, {
+  MonthlySummaryByMonth,
+} from 'src/types/transactions/monthlySummaryDTO';
+import { CurrencyTotals } from 'src/types/transactions/transactionPaginatedResponse';
+import { DEFAULT_CURRENCY } from 'src/types/currency';
 
 export class InMemoTransactionsRepository extends TransactionsRepository {
   private lastId: number = 1;
@@ -38,6 +44,20 @@ export class InMemoTransactionsRepository extends TransactionsRepository {
     return transactions.slice(startIndex, endIndex);
   }
 
+  // Mirrors the database repository: totals are kept apart per currency.
+  private buildTotals(
+    transactions: Transaction[],
+  ): Record<string, CurrencyTotals> {
+    return transactions.reduce<Record<string, CurrencyTotals>>((acc, t) => {
+      const currency = t.getCurrency();
+      const type = t.getType();
+      if (type !== 'income' && type !== 'expense') return acc;
+      if (!acc[currency]) acc[currency] = { income: 0, expense: 0 };
+      acc[currency][type] += t.getAmount();
+      return acc;
+    }, {});
+  }
+
   async findAllAndCount(
     filters?: TransactionFilter,
   ): Promise<TransactionStats> {
@@ -57,12 +77,7 @@ export class InMemoTransactionsRepository extends TransactionsRepository {
     return await Promise.resolve({
       transactions: transactions.map((transaction) => this.toDTO(transaction)),
       count,
-      income: transactions.reduce((acc, transaction) => {
-        return acc + transaction.getAmount();
-      }, 0),
-      expense: transactions.reduce((acc, transaction) => {
-        return acc + transaction.getAmount();
-      }, 0),
+      totals: this.buildTotals(transactions),
     });
   }
 
@@ -86,6 +101,8 @@ export class InMemoTransactionsRepository extends TransactionsRepository {
       createTransactionProps.type,
       createTransactionProps.categoryId,
       createTransactionProps.description,
+      createTransactionProps.currency ?? DEFAULT_CURRENCY,
+      createTransactionProps.fixedTransactionId ?? null,
     );
     inMemoTransactions.push(newTransaction);
     this.upgradeId();
@@ -110,6 +127,7 @@ export class InMemoTransactionsRepository extends TransactionsRepository {
       props.description ?? transaction.getDescription(),
     );
     transaction.setType(props.type);
+    transaction.setCurrency(props.currency ?? transaction.getCurrency());
     transaction.setUpdatedAt();
 
     return await Promise.resolve(this.toDTO(transaction));
@@ -130,15 +148,20 @@ export class InMemoTransactionsRepository extends TransactionsRepository {
   async getMonthlySummary(
     filters?: TransactionFilter,
   ): Promise<MonthlySummaryDTO> {
-    const summary: MonthlySummaryDTO = {};
+    // Built with a plain record so the per-currency buckets are known to
+    // exist after ensureMonth; returned as the Partial-keyed DTO.
+    const summary: Record<string, MonthlySummaryByMonth> = {};
     const transactions = filters
       ? this.filterTransactions(filters, [...inMemoTransactions])
       : [...inMemoTransactions];
 
-    const ensureMonth = (key: string) => {
-      if (!summary[key]) summary[key] = { income: 0, expense: 0, balance: 0 };
+    const ensureMonth = (currency: string, key: string) => {
+      if (!summary[currency]) summary[currency] = {};
+      if (!summary[currency][key])
+        summary[currency][key] = { income: 0, expense: 0, balance: 0 };
     };
 
+    const months: string[] = [];
     if (filters?.startDate && filters?.endDate) {
       const start = new Date(filters.startDate);
       const end = new Date(filters.endDate);
@@ -151,7 +174,7 @@ export class InMemoTransactionsRepository extends TransactionsRepository {
       while (cursor <= stop) {
         const year = cursor.getUTCFullYear();
         const month = String(cursor.getUTCMonth() + 1).padStart(2, '0');
-        ensureMonth(`${year}-${month}`);
+        months.push(`${year}-${month}`);
         cursor.setUTCMonth(cursor.getUTCMonth() + 1);
       }
     }
@@ -161,14 +184,22 @@ export class InMemoTransactionsRepository extends TransactionsRepository {
       const year = due.getUTCFullYear();
       const month = String(due.getUTCMonth() + 1).padStart(2, '0');
       const key = `${year}-${month}`;
-      ensureMonth(key);
+      const currency = t.getCurrency();
+
+      months.forEach((m) => ensureMonth(currency, m));
+      ensureMonth(currency, key);
+
       const type = t.getType();
-      if (type === 'income') summary[key].income += t.getAmount();
-      else if (type === 'expense') summary[key].expense += t.getAmount();
+      if (type === 'income') summary[currency][key].income += t.getAmount();
+      else if (type === 'expense')
+        summary[currency][key].expense += t.getAmount();
     });
 
-    Object.keys(summary).forEach((key) => {
-      summary[key].balance = summary[key].income - summary[key].expense;
+    Object.keys(summary).forEach((currency) => {
+      Object.keys(summary[currency]).forEach((key) => {
+        summary[currency][key].balance =
+          summary[currency][key].income - summary[currency][key].expense;
+      });
     });
 
     return await Promise.resolve(summary);
@@ -176,25 +207,36 @@ export class InMemoTransactionsRepository extends TransactionsRepository {
 
   async getAmountByCategory(
     filters?: TransactionFilter,
-  ): Promise<TypedAmountByCategory> {
-    const amountByCategory = inMemoTransactions.reduce((acc, transaction) => {
-      const category = inMemoCategories.find(
-        (category) => category.getId() === transaction.getCategoryId(),
-      )!;
-      const title = category.getTitle();
-      const transactionType = transaction.getType();
-      const transactionAmount = transaction.getAmount();
+  ): Promise<AmountByCategoryResponse> {
+    const transactions = filters
+      ? this.filterTransactions(filters, [...inMemoTransactions])
+      : [...inMemoTransactions];
 
-      return {
-        ...acc,
-        [transactionType]: {
-          ...acc[transactionType],
-          title: acc[transactionType][title]
-            ? acc[transactionType][title] + transactionAmount
-            : transactionAmount,
-        },
-      };
-    }, {} as TypedAmountByCategory);
+    const amountByCategory = transactions.reduce<AmountByCategoryResponse>(
+      (acc, transaction) => {
+        const category = inMemoCategories.find(
+          (category) => category.getId() === transaction.getCategoryId(),
+        )!;
+        const title = category.getTitle();
+        const transactionType = transaction.getType();
+        const transactionAmount = transaction.getAmount();
+        const currency = transaction.getCurrency();
+
+        if (!acc[currency]) {
+          acc[currency] = {
+            income: {},
+            expense: {},
+            investment: {},
+          } as TypedAmountByCategory;
+        }
+
+        acc[currency]![transactionType][title] =
+          (acc[currency]![transactionType][title] ?? 0) + transactionAmount;
+
+        return acc;
+      },
+      {},
+    );
 
     return Promise.resolve(amountByCategory);
   }
@@ -207,9 +249,11 @@ export class InMemoTransactionsRepository extends TransactionsRepository {
     return {
       id: transaction.getId(),
       amount: transaction.getAmount(),
+      currency: transaction.getCurrency(),
       dueDate: transaction.getDueDate(),
       type: transaction.getType(),
       description: transaction.getDescription(),
+      fixedTransactionId: transaction.getFixedTransactionId(),
       createdAt: transaction.getCreatedAt(),
       updatedAt: transaction.getUpdatedAt(),
       category: {

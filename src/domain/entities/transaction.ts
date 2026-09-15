@@ -1,8 +1,11 @@
+import { Currency, DEFAULT_CURRENCY } from 'src/types/currency';
 import { TransactionType } from 'src/types/transactions/transactionTypes';
 
 export default class Transaction {
   private readonly createdAt: Date;
   private updatedAt: Date;
+  private currency: Currency;
+  private fixedTransactionId: number | null;
 
   constructor(
     private readonly id: number,
@@ -11,6 +14,8 @@ export default class Transaction {
     private type: TransactionType,
     private categoryId: number,
     private description?: string,
+    currency: Currency = DEFAULT_CURRENCY,
+    fixedTransactionId: number | null = null,
   ) {
     this.id = id;
     this.setAmount(amount);
@@ -18,6 +23,8 @@ export default class Transaction {
     this.setType(type);
     this.setDescription(description);
     this.setCategoryId(categoryId);
+    this.setCurrency(currency);
+    this.setFixedTransactionId(fixedTransactionId);
 
     this.createdAt = new Date();
     this.setUpdatedAt();
@@ -55,6 +62,14 @@ export default class Transaction {
     return this.categoryId;
   }
 
+  getCurrency() {
+    return this.currency;
+  }
+
+  getFixedTransactionId() {
+    return this.fixedTransactionId;
+  }
+
   setAmount(amount: number) {
     this.amount = amount;
   }
@@ -77,5 +92,13 @@ export default class Transaction {
 
   setCategoryId(categoryId: number) {
     this.categoryId = categoryId;
+  }
+
+  setCurrency(currency: Currency) {
+    this.currency = currency;
+  }
+
+  setFixedTransactionId(fixedTransactionId: number | null) {
+    this.fixedTransactionId = fixedTransactionId;
   }
 }

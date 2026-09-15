@@ -2,20 +2,30 @@ import { Injectable, NotFoundException, HttpException } from '@nestjs/common';
 import { Category } from 'generated/prisma';
 import CategoriesRepository from 'src/domain/repositories/categories.repository';
 import TransactionsRepository from 'src/domain/repositories/transactions.repository';
-import TypedAmountByCategory from 'src/types/transactions/amountByCategory';
+import AmountByCategoryResponse from 'src/types/transactions/amountByCategory';
 import CreateTransactionDTO from 'src/types/transactions/createTransactionDTO';
 import MonthlySummaryDTO from 'src/types/transactions/monthlySummaryDTO';
 import TransactionDTO from 'src/types/transactions/transactionDTO';
 import TransactionPaginatedResponse from 'src/types/transactions/transactionPaginatedResponse';
 import TransactionFilter from 'src/types/transactions/transactionsFilter';
 import UpdateTransactionDTO from 'src/types/transactions/updateTransactionDTO';
+import TransactionStats from 'src/types/transactions/transactionsStats';
+import SettingsRepository from 'src/domain/repositories/settings.repository';
+import { AppSettings } from 'generated/prisma';
+import { isCurrency } from 'src/types/currency';
 
 @Injectable()
 export class TransactionsService {
   constructor(
     private readonly transactionsRepo: TransactionsRepository,
     private readonly categoriesRepo: CategoriesRepository<Category>,
+    private readonly settingsRepo: SettingsRepository<AppSettings>,
   ) {}
+
+  private assertCurrency(currency?: string) {
+    if (currency !== undefined && !isCurrency(currency))
+      throw new HttpException('Invalid currency', 400);
+  }
 
   private isPageValid(page: number, count: number) {
     const totalPages =
@@ -28,8 +38,7 @@ export class TransactionsService {
     page: number,
     count: number,
     transactions: TransactionDTO[],
-    income: number,
-    expense: number,
+    totals: TransactionStats['totals'],
   ): TransactionPaginatedResponse {
     const totalPages = Math.ceil(count / this.transactionsRepo.itemsPerPage);
     const nextPage = page + 1 <= totalPages ? page + 1 : null;
@@ -40,8 +49,7 @@ export class TransactionsService {
       next: nextPage,
       prev: prevPage,
       count,
-      income,
-      expense,
+      totals,
       results: transactions,
     };
   }
@@ -55,7 +63,16 @@ export class TransactionsService {
 
     if (!category) throw new NotFoundException('Invalid category');
 
-    return await this.transactionsRepo.create(createTransactionProps);
+    this.assertCurrency(createTransactionProps.currency);
+
+    // Falls back to the configured default so a client that omits the field
+    // still records the currency the user actually works in.
+    const settings = await this.settingsRepo.get();
+
+    return await this.transactionsRepo.create({
+      ...createTransactionProps,
+      currency: createTransactionProps.currency ?? settings.defaultCurrency,
+    });
   }
 
   async update(
@@ -68,13 +85,15 @@ export class TransactionsService {
     const category = await this.categoriesRepo.findById(props.categoryId);
     if (!category) throw new NotFoundException('Invalid category');
 
+    this.assertCurrency(props.currency);
+
     return await this.transactionsRepo.update(id, props);
   }
 
   async findAll(
     filters?: TransactionFilter,
   ): Promise<TransactionDTO[] | TransactionPaginatedResponse> {
-    const { transactions, count, income, expense } =
+    const { transactions, count, totals } =
       await this.transactionsRepo.findAllAndCount(filters);
     if (filters?.page) {
       if (!this.isPageValid(Number(filters.page), count))
@@ -84,8 +103,7 @@ export class TransactionsService {
         Number(filters.page),
         count,
         transactions,
-        income,
-        expense,
+        totals,
       );
     }
 
@@ -106,7 +124,7 @@ export class TransactionsService {
 
   async getAmountByCategory(
     filters?: TransactionFilter,
-  ): Promise<TypedAmountByCategory> {
+  ): Promise<AmountByCategoryResponse> {
     return await this.transactionsRepo.getAmountByCategory(filters);
   }
 

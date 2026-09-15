@@ -1,4 +1,6 @@
-export default interface MonthlyCategoryTotalsDTO {
+import { ByCurrency } from '../currency';
+
+export interface CategoryMonthlyTotals {
   [categoryId: number]: {
     title: string;
     color: string | null;
@@ -7,3 +9,8 @@ export default interface MonthlyCategoryTotalsDTO {
     };
   };
 }
+
+// Grouped by currency: totals are never converted or combined across currencies.
+type MonthlyCategoryTotalsDTO = ByCurrency<CategoryMonthlyTotals>;
+
+export default MonthlyCategoryTotalsDTO;

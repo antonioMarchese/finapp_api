@@ -85,20 +85,22 @@ export class InMemoCategoriesRepository extends CategoriesRepository<Category> {
   async getMonthlyTotals(): Promise<MonthlyCategoryTotalsDTO> {
     // Mock data for testing
     const mockResult: MonthlyCategoryTotalsDTO = {
-      1: {
-        title: 'Food',
-        color: '#FF5733',
-        reports: {
-          '09-25': 150.5,
-          '08-25': 200.0,
+      BRL: {
+        1: {
+          title: 'Food',
+          color: '#FF5733',
+          reports: {
+            '09-25': 150.5,
+            '08-25': 200.0,
+          },
         },
-      },
-      2: {
-        title: 'Transport',
-        color: '#33FF57',
-        reports: {
-          '09-25': 75.25,
-          '07-25': 100.0,
+        2: {
+          title: 'Transport',
+          color: '#33FF57',
+          reports: {
+            '09-25': 75.25,
+            '07-25': 100.0,
+          },
         },
       },
     };

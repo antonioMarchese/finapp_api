@@ -1,6 +1,7 @@
 export const transactionSchema = {
   id: expect.any(Number),
   amount: expect.any(Number),
+  currency: expect.any(String),
   dueDate: expect.any(Date),
   type: expect.any(String),
   createdAt: expect.any(Date),
@@ -15,6 +16,7 @@ export const transactionSchema = {
 
 export const mockCreateTransaction = {
   amount: 100,
+  currency: 'BRL' as const,
   dueDate: new Date(),
   type: 'income',
   categoryId: 1,

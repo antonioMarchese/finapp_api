@@ -9,7 +9,7 @@ import {
   Query,
 } from '@nestjs/common';
 import { TransactionsService } from 'src/services/transactions.service';
-import TypedAmountByCategory from 'src/types/transactions/amountByCategory';
+import AmountByCategoryResponse from 'src/types/transactions/amountByCategory';
 import CreateTransactionDTO from 'src/types/transactions/createTransactionDTO';
 import MonthlySummaryDTO from 'src/types/transactions/monthlySummaryDTO';
 import TransactionDTO from 'src/types/transactions/transactionDTO';
@@ -53,7 +53,7 @@ export class TransactionsController {
   @Get('categories-amount')
   async getAmountByCategory(
     @Query() filters?: TransactionFilter,
-  ): Promise<TypedAmountByCategory> {
+  ): Promise<AmountByCategoryResponse> {
     return await this.transactionsService.getAmountByCategory(filters);
   }
 
