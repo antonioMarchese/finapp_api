@@ -11,6 +11,7 @@ import {
 import { TransactionsService } from 'src/services/transactions.service';
 import TypedAmountByCategory from 'src/types/transactions/amountByCategory';
 import CreateTransactionDTO from 'src/types/transactions/createTransactionDTO';
+import MonthlySummaryDTO from 'src/types/transactions/monthlySummaryDTO';
 import TransactionDTO from 'src/types/transactions/transactionDTO';
 import TransactionPaginatedResponse from 'src/types/transactions/transactionPaginatedResponse';
 import TransactionFilter from 'src/types/transactions/transactionsFilter';
@@ -54,5 +55,12 @@ export class TransactionsController {
     @Query() filters?: TransactionFilter,
   ): Promise<TypedAmountByCategory> {
     return await this.transactionsService.getAmountByCategory(filters);
+  }
+
+  @Get('dashboard')
+  async getDashboard(
+    @Query() filters?: TransactionFilter,
+  ): Promise<MonthlySummaryDTO> {
+    return await this.transactionsService.getMonthlySummary(filters);
   }
 }

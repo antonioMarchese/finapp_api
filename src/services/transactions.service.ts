@@ -4,6 +4,7 @@ import CategoriesRepository from 'src/domain/repositories/categories.repository'
 import TransactionsRepository from 'src/domain/repositories/transactions.repository';
 import TypedAmountByCategory from 'src/types/transactions/amountByCategory';
 import CreateTransactionDTO from 'src/types/transactions/createTransactionDTO';
+import MonthlySummaryDTO from 'src/types/transactions/monthlySummaryDTO';
 import TransactionDTO from 'src/types/transactions/transactionDTO';
 import TransactionPaginatedResponse from 'src/types/transactions/transactionPaginatedResponse';
 import TransactionFilter from 'src/types/transactions/transactionsFilter';
@@ -107,5 +108,11 @@ export class TransactionsService {
     filters?: TransactionFilter,
   ): Promise<TypedAmountByCategory> {
     return await this.transactionsRepo.getAmountByCategory(filters);
+  }
+
+  async getMonthlySummary(
+    filters?: TransactionFilter,
+  ): Promise<MonthlySummaryDTO> {
+    return await this.transactionsRepo.getMonthlySummary(filters);
   }
 }

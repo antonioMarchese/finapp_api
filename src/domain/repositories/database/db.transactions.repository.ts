@@ -8,10 +8,11 @@ import { Injectable } from '@nestjs/common';
 import { Prisma } from 'generated/prisma';
 import TransactionStats from 'src/types/transactions/transactionsStats';
 import TypedAmountByCategory from 'src/types/transactions/amountByCategory';
+import MonthlySummaryDTO from 'src/types/transactions/monthlySummaryDTO';
 
 @Injectable()
 export class DBTransactionsRepository extends TransactionsRepository {
-  itemsPerPage: number = 5;
+  itemsPerPage: number = 10;
 
   constructor(private readonly prismaService: PrismaService) {
     super();
@@ -215,6 +216,80 @@ export class DBTransactionsRepository extends TransactionsRepository {
     await this.prismaService.transaction.delete({ where: { id } });
 
     return await Promise.resolve(null);
+  }
+
+  async getMonthlySummary(
+    filters?: TransactionFilter,
+  ): Promise<MonthlySummaryDTO> {
+    const startDate = filters?.startDate
+      ? this.startOfDay(new Date(filters.startDate))
+      : null;
+    const endDate = filters?.endDate
+      ? this.endOfDay(new Date(filters.endDate))
+      : null;
+
+    const rows = await this.prismaService.$queryRaw<
+      Array<{ month: string; type: string; total: number }>
+    >`
+      SELECT
+        TO_CHAR(t."dueDate", 'YYYY-MM') AS month,
+        t.type::text AS type,
+        SUM(t.amount)::float AS total
+      FROM transactions t
+      WHERE
+        (${startDate}::timestamp IS NULL OR t."dueDate" >= ${startDate}::timestamp)
+        AND (${endDate}::timestamp IS NULL OR t."dueDate" <= ${endDate}::timestamp)
+      GROUP BY month, t.type
+      ORDER BY month
+    `;
+
+    const summary: MonthlySummaryDTO = {};
+    const ensureMonth = (key: string) => {
+      if (!summary[key]) summary[key] = { income: 0, expense: 0, balance: 0 };
+    };
+
+    if (startDate && endDate) {
+      const cursor = new Date(
+        Date.UTC(startDate.getUTCFullYear(), startDate.getUTCMonth(), 1),
+      );
+      const stop = new Date(
+        Date.UTC(endDate.getUTCFullYear(), endDate.getUTCMonth(), 1),
+      );
+      while (cursor <= stop) {
+        ensureMonth(this.toMonthKey(cursor));
+        cursor.setUTCMonth(cursor.getUTCMonth() + 1);
+      }
+    }
+
+    rows.forEach((row) => {
+      ensureMonth(row.month);
+      if (row.type === 'income') summary[row.month].income = row.total;
+      else if (row.type === 'expense') summary[row.month].expense = row.total;
+    });
+
+    Object.keys(summary).forEach((key) => {
+      summary[key].balance = summary[key].income - summary[key].expense;
+    });
+
+    return summary;
+  }
+
+  private startOfDay(date: Date): Date {
+    const d = new Date(date);
+    d.setUTCHours(0, 0, 0, 0);
+    return d;
+  }
+
+  private endOfDay(date: Date): Date {
+    const d = new Date(date);
+    d.setUTCHours(23, 59, 59, 0);
+    return d;
+  }
+
+  private toMonthKey(date: Date): string {
+    const year = date.getUTCFullYear();
+    const month = String(date.getUTCMonth() + 1).padStart(2, '0');
+    return `${year}-${month}`;
   }
 
   async getAmountByCategory(

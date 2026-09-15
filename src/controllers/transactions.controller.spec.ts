@@ -112,6 +112,12 @@ describe('TransactionsController', () => {
 
       return await Promise.resolve(amountByCategory);
     }),
+    getMonthlySummary: jest.fn(async () => {
+      return await Promise.resolve({
+        '2026-01': { income: 1000, expense: 400, balance: 600 },
+        '2026-02': { income: 200, expense: 50, balance: 150 },
+      });
+    }),
   };
 
   beforeEach(async () => {
@@ -234,5 +240,18 @@ describe('TransactionsController', () => {
     const result = await controller.getAmountByCategory();
     expect(result).toHaveProperty('expense');
     expect(mockTransactionsService.getAmountByCategory).toHaveBeenCalled();
+  });
+
+  it('should return dashboard monthly summary', async () => {
+    const result = await controller.getDashboard({
+      startDate: new Date('2026-01-01'),
+      endDate: new Date('2026-02-28'),
+    });
+
+    expect(result).toEqual({
+      '2026-01': { income: 1000, expense: 400, balance: 600 },
+      '2026-02': { income: 200, expense: 50, balance: 150 },
+    });
+    expect(mockTransactionsService.getMonthlySummary).toHaveBeenCalled();
   });
 });

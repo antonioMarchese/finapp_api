@@ -8,10 +8,11 @@ import TransactionFilter from 'src/types/transactions/transactionsFilter';
 import buildInMemoTransactionFilter from 'src/utils/buildTransactionsFilter';
 import TransactionStats from 'src/types/transactions/transactionsStats';
 import TypedAmountByCategory from 'src/types/transactions/amountByCategory';
+import MonthlySummaryDTO from 'src/types/transactions/monthlySummaryDTO';
 
 export class InMemoTransactionsRepository extends TransactionsRepository {
   private lastId: number = 1;
-  itemsPerPage: number = 5;
+  itemsPerPage: number = 10;
 
   private filterTransactions(
     filters: TransactionFilter,
@@ -124,6 +125,53 @@ export class InMemoTransactionsRepository extends TransactionsRepository {
     }
 
     return await Promise.resolve(null);
+  }
+
+  async getMonthlySummary(
+    filters?: TransactionFilter,
+  ): Promise<MonthlySummaryDTO> {
+    const summary: MonthlySummaryDTO = {};
+    const transactions = filters
+      ? this.filterTransactions(filters, [...inMemoTransactions])
+      : [...inMemoTransactions];
+
+    const ensureMonth = (key: string) => {
+      if (!summary[key]) summary[key] = { income: 0, expense: 0, balance: 0 };
+    };
+
+    if (filters?.startDate && filters?.endDate) {
+      const start = new Date(filters.startDate);
+      const end = new Date(filters.endDate);
+      const cursor = new Date(
+        Date.UTC(start.getUTCFullYear(), start.getUTCMonth(), 1),
+      );
+      const stop = new Date(
+        Date.UTC(end.getUTCFullYear(), end.getUTCMonth(), 1),
+      );
+      while (cursor <= stop) {
+        const year = cursor.getUTCFullYear();
+        const month = String(cursor.getUTCMonth() + 1).padStart(2, '0');
+        ensureMonth(`${year}-${month}`);
+        cursor.setUTCMonth(cursor.getUTCMonth() + 1);
+      }
+    }
+
+    transactions.forEach((t) => {
+      const due = new Date(t.getDueDate());
+      const year = due.getUTCFullYear();
+      const month = String(due.getUTCMonth() + 1).padStart(2, '0');
+      const key = `${year}-${month}`;
+      ensureMonth(key);
+      const type = t.getType();
+      if (type === 'income') summary[key].income += t.getAmount();
+      else if (type === 'expense') summary[key].expense += t.getAmount();
+    });
+
+    Object.keys(summary).forEach((key) => {
+      summary[key].balance = summary[key].income - summary[key].expense;
+    });
+
+    return await Promise.resolve(summary);
   }
 
   async getAmountByCategory(

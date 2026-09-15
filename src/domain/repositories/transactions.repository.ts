@@ -1,5 +1,6 @@
 import TypedAmountByCategory from 'src/types/transactions/amountByCategory';
 import CreateTransactionDTO from 'src/types/transactions/createTransactionDTO';
+import MonthlySummaryDTO from 'src/types/transactions/monthlySummaryDTO';
 import TransactionDTO from 'src/types/transactions/transactionDTO';
 import TransactionFilter from 'src/types/transactions/transactionsFilter';
 import TransactionStats from 'src/types/transactions/transactionsStats';
@@ -24,4 +25,7 @@ export default abstract class TransactionsRepository {
   abstract getAmountByCategory(
     filters?: TransactionFilter,
   ): Promise<TypedAmountByCategory>;
+  abstract getMonthlySummary(
+    filters?: TransactionFilter,
+  ): Promise<MonthlySummaryDTO>;
 }

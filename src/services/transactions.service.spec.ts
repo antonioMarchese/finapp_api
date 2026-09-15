@@ -11,6 +11,7 @@ import Transaction from 'src/domain/entities/transaction';
 import UpdateTransactionDTO from 'src/types/transactions/updateTransactionDTO';
 import { transactionSchema } from 'src/types/transactions/testSchemas';
 import TypedAmountByCategory from 'src/types/transactions/amountByCategory';
+import MonthlySummaryDTO from 'src/types/transactions/monthlySummaryDTO';
 
 describe('TransactionsService', () => {
   let service: TransactionsService;
@@ -125,6 +126,12 @@ describe('TransactionsService', () => {
       }
 
       return await Promise.resolve(typedAmountByCategory);
+    }),
+    getMonthlySummary: jest.fn(async (): Promise<MonthlySummaryDTO> => {
+      return await Promise.resolve({
+        '2026-01': { income: 1000, expense: 400, balance: 600 },
+        '2026-02': { income: 0, expense: 0, balance: 0 },
+      });
     }),
   };
 
@@ -295,5 +302,18 @@ describe('TransactionsService', () => {
     } catch (error) {
       expect(error).toEqual(new Error('Invalid page'));
     }
+  });
+
+  it('should return monthly summary for date range', async () => {
+    const result = await service.getMonthlySummary({
+      startDate: new Date('2026-01-01'),
+      endDate: new Date('2026-02-28'),
+    });
+
+    expect(result).toEqual({
+      '2026-01': { income: 1000, expense: 400, balance: 600 },
+      '2026-02': { income: 0, expense: 0, balance: 0 },
+    });
+    expect(mockTransactionsRepository.getMonthlySummary).toHaveBeenCalled();
   });
 });
