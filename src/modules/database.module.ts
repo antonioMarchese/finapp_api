@@ -8,6 +8,8 @@ import SettingsRepository from 'src/domain/repositories/settings.repository';
 import { DBSettingsRepository } from 'src/domain/repositories/database/db.settings.repository';
 import FixedTransactionsRepository from 'src/domain/repositories/fixedTransactions.repository';
 import { DBFixedTransactionsRepository } from 'src/domain/repositories/database/db.fixedTransactions.repository';
+import WeeklyGoalsRepository from 'src/domain/repositories/weeklyGoals.repository';
+import { DBWeeklyGoalsRepository } from 'src/domain/repositories/database/db.weeklyGoals.repository';
 
 @Global()
 @Module({
@@ -29,12 +31,17 @@ import { DBFixedTransactionsRepository } from 'src/domain/repositories/database/
       provide: FixedTransactionsRepository,
       useClass: DBFixedTransactionsRepository,
     },
+    {
+      provide: WeeklyGoalsRepository,
+      useClass: DBWeeklyGoalsRepository,
+    },
   ],
   exports: [
     CategoriesRepository,
     TransactionsRepository,
     SettingsRepository,
     FixedTransactionsRepository,
+    WeeklyGoalsRepository,
   ],
 })
 export class DatabaseModule {}

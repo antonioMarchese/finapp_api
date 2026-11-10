@@ -35,6 +35,12 @@ describe('FixedTransactionsService', () => {
         title: category.getTitle(),
         slug: category.getSlug(),
         color: category.getColor(),
+        type: category.getType(),
+        icon: category.getIcon(),
+        active: category.isActive(),
+        weeklyBudget: category.getWeeklyBudget(),
+        excludeFromWeekly: category.isExcludedFromWeekly(),
+        position: category.getPosition(),
         createdAt: category.getCreatedAt().toISOString(),
         updatedAt: category.getUpdatedAt().toISOString(),
       });

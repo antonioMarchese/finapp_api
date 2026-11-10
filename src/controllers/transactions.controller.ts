@@ -1,7 +1,9 @@
 import {
   Body,
   Controller,
+  Delete,
   Get,
+  HttpCode,
   NotFoundException,
   Param,
   Post,
@@ -16,6 +18,11 @@ import TransactionDTO from 'src/types/transactions/transactionDTO';
 import TransactionPaginatedResponse from 'src/types/transactions/transactionPaginatedResponse';
 import TransactionFilter from 'src/types/transactions/transactionsFilter';
 import UpdateTransactionDTO from 'src/types/transactions/updateTransactionDTO';
+import {
+  BulkDeleteTransactionsDTO,
+  BulkResultDTO,
+  BulkUpdateCategoryDTO,
+} from 'src/types/transactions/bulkTransactionsDTO';
 
 @Controller()
 export class TransactionsController {
@@ -48,6 +55,29 @@ export class TransactionsController {
     @Body() props: UpdateTransactionDTO,
   ): Promise<TransactionDTO | null> {
     return await this.transactionsService.update(Number(id), props);
+  }
+
+  @Delete('transactions/:id')
+  @HttpCode(204)
+  async remove(@Param('id') id: string): Promise<void> {
+    await this.transactionsService.remove(Number(id));
+  }
+
+  // Bulk routes live outside `transactions/` so they can't collide with `:id`.
+  @Put('transactions-bulk/category')
+  async updateCategoryMany(
+    @Body() { ids, categoryId }: BulkUpdateCategoryDTO,
+  ): Promise<BulkResultDTO> {
+    return {
+      count: await this.transactionsService.updateCategoryMany(ids, categoryId),
+    };
+  }
+
+  @Delete('transactions-bulk')
+  async removeMany(
+    @Body() { ids }: BulkDeleteTransactionsDTO,
+  ): Promise<BulkResultDTO> {
+    return { count: await this.transactionsService.removeMany(ids) };
   }
 
   @Get('categories-amount')

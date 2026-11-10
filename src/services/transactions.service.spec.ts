@@ -150,6 +150,12 @@ describe('TransactionsService', () => {
         title: mockCategory.getTitle(),
         slug: mockCategory.getSlug(),
         color: mockCategory.getColor(),
+        type: mockCategory.getType(),
+        icon: mockCategory.getIcon(),
+        active: mockCategory.isActive(),
+        weeklyBudget: mockCategory.getWeeklyBudget(),
+        excludeFromWeekly: mockCategory.isExcludedFromWeekly(),
+        position: mockCategory.getPosition(),
         createdAt: mockCategory.getCreatedAt().toISOString(),
         updatedAt: mockCategory.getUpdatedAt().toISOString(),
       });

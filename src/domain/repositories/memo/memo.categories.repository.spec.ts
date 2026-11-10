@@ -11,6 +11,12 @@ describe('InMemoCategoriesRepository', () => {
     title: expect.any(String),
     slug: expect.any(String),
     color: expect.any(String),
+    type: 'expense',
+    icon: null,
+    active: true,
+    weeklyBudget: null,
+    excludeFromWeekly: false,
+    position: expect.any(Number),
     createdAt: expect.any(String),
     updatedAt: expect.any(String),
   };

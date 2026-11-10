@@ -117,9 +117,44 @@ export class TransactionsService {
   async remove(id: number): Promise<null> {
     const transaction = await this.transactionsRepo.findById(id);
 
-    if (!transaction) throw new Error('Transaction not found');
+    if (!transaction) throw new NotFoundException('Transaction not found');
 
     return await this.transactionsRepo.remove(id);
+  }
+
+  // Every id must exist, so a stale selection fails as a whole instead of
+  // half-applying.
+  private async assertBulkIds(ids: unknown): Promise<number[]> {
+    if (
+      !Array.isArray(ids) ||
+      ids.length === 0 ||
+      !ids.every((id) => Number.isInteger(id) && id > 0)
+    )
+      throw new HttpException('Select at least one transaction', 400);
+
+    const unique = [...new Set(ids as number[])];
+    const existing = await this.transactionsRepo.findExistingIds(unique);
+    if (existing.length !== unique.length)
+      throw new NotFoundException('Some transactions no longer exist');
+
+    return unique;
+  }
+
+  async removeMany(ids: number[]): Promise<number> {
+    return await this.transactionsRepo.removeMany(
+      await this.assertBulkIds(ids),
+    );
+  }
+
+  async updateCategoryMany(ids: number[], categoryId: number): Promise<number> {
+    const validIds = await this.assertBulkIds(ids);
+    const category = await this.categoriesRepo.findById(Number(categoryId));
+    if (!category) throw new NotFoundException('Invalid category');
+
+    return await this.transactionsRepo.updateCategoryMany(
+      validIds,
+      category.id,
+    );
   }
 
   async getAmountByCategory(

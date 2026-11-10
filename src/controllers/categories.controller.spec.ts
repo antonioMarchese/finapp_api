@@ -49,7 +49,7 @@ describe('CategoriesController', () => {
       return await Promise.resolve({
         id: 1,
         ...dto,
-        slug: slugfy(dto.title),
+        slug: slugfy(dto.title ?? 'test'),
         color: dto.color ?? '#FF11AA',
         createdAt: new Date(),
         updatedAt: new Date(),
@@ -129,7 +129,7 @@ describe('CategoriesController', () => {
     expect(await controller.update('1', updateCategoryData)).toEqual({
       ...categorySchema,
       title: updateCategoryData.title,
-      slug: slugfy(updateCategoryData.title),
+      slug: slugfy(updateCategoryData.title!),
       color: updateCategoryData.color,
     });
     expect(mockCategoriesService.update).toHaveBeenCalled();

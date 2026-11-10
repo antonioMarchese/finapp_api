@@ -134,15 +134,38 @@ export class InMemoTransactionsRepository extends TransactionsRepository {
   }
 
   async remove(id: number): Promise<null> {
-    const transaction = await this.findById(id);
-
-    if (transaction) {
-      inMemoCategories.splice(
-        inMemoCategories.findIndex((category) => category.getId() === id),
-      );
-    }
+    const index = inMemoTransactions.findIndex(
+      (transaction) => transaction.getId() === id,
+    );
+    if (index !== -1) inMemoTransactions.splice(index, 1);
 
     return await Promise.resolve(null);
+  }
+
+  async removeMany(ids: number[]): Promise<number> {
+    const before = inMemoTransactions.length;
+    const remaining = inMemoTransactions.filter(
+      (t) => !ids.includes(t.getId()),
+    );
+    inMemoTransactions.splice(0, inMemoTransactions.length, ...remaining);
+
+    return await Promise.resolve(before - remaining.length);
+  }
+
+  async updateCategoryMany(ids: number[], categoryId: number): Promise<number> {
+    const matching = inMemoTransactions.filter((t) => ids.includes(t.getId()));
+    matching.forEach((t) => {
+      t.setCategoryId(categoryId);
+      t.setUpdatedAt();
+    });
+
+    return await Promise.resolve(matching.length);
+  }
+
+  async findExistingIds(ids: number[]): Promise<number[]> {
+    return await Promise.resolve(
+      inMemoTransactions.map((t) => t.getId()).filter((id) => ids.includes(id)),
+    );
   }
 
   async getMonthlySummary(

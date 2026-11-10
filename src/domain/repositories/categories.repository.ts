@@ -1,12 +1,16 @@
 import CreateCategoryDTO from 'src/types/categories/createCategoryDTO';
+import UpdateCategoryDTO from 'src/types/categories/updateCategoryDTO';
 import CategoryDTO from 'src/types/categories/categoryDTO';
 import MonthlyCategoryTotalsDTO from 'src/types/categories/monthlyCategoryTotalsDTO';
 
 export default abstract class CategoriesRepository<Entity> {
   abstract create(createCategoryProps: CreateCategoryDTO): Promise<CategoryDTO>;
-  abstract update(id: number, props: CreateCategoryDTO): Promise<CategoryDTO>;
+  abstract update(id: number, props: UpdateCategoryDTO): Promise<CategoryDTO>;
   abstract remove(id: number): Promise<null>;
+  // Sets each category's position to its index in `ids`.
+  abstract reorder(ids: number[]): Promise<CategoryDTO[]>;
 
+  // Ordered by position, then id.
   abstract findAll(): Promise<CategoryDTO[]>;
   abstract findById(id: number): Promise<CategoryDTO | null>;
   abstract findBySlug(slug: string): Promise<CategoryDTO | null>;

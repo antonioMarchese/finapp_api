@@ -45,10 +45,22 @@ model Transaction {
 }
 
 model Category {
-  id    Int     @id @default(autoincrement())
-  title String
-  slug  String
-  color String?
+  id                Int             @id @default(autoincrement())
+  title             String
+  slug              String
+  color             String?
+  // Which kind of transaction the category is offered for.
+  type              TransactionType @default(expense)
+  // Name from the fixed icon set the frontend renders.
+  icon              String?
+  // Inactive categories are hidden from the transaction form; their history stays.
+  active            Boolean         @default(true)
+  // Optional per-week cap, in the weekly goals' currency.
+  weeklyBudget      Float?
+  // Left out of the weekly view and its goals (rent, yearly bills...).
+  excludeFromWeekly Boolean         @default(false)
+  // Order the categories are listed in, lowest first.
+  position          Int             @default(0)
 
   transactions      Transaction[]
   fixedTransactions FixedTransaction[]
@@ -92,4 +104,21 @@ model AppSettings {
   updatedAt DateTime @updatedAt
 
   @@map("app_settings")
+}
+
+// Single-row table with the weekly spending goals. Amounts are in `currency`,
+// as are the categories' weekly budgets; spending in other currencies is never
+// converted to count against them.
+model WeeklyGoals {
+  id              Int      @id @default(1)
+  currency        Currency @default(BRL)
+  spendingLimit   Float?
+  showDailyBudget Boolean  @default(true)
+  savingsTarget   Float?
+  noSpendDays     Int      @default(0)
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@map("weekly_goals")
 }

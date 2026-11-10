@@ -229,6 +229,32 @@ export class DBTransactionsRepository extends TransactionsRepository {
     return await Promise.resolve(null);
   }
 
+  async removeMany(ids: number[]): Promise<number> {
+    const { count } = await this.prismaService.transaction.deleteMany({
+      where: { id: { in: ids } },
+    });
+
+    return count;
+  }
+
+  async updateCategoryMany(ids: number[], categoryId: number): Promise<number> {
+    const { count } = await this.prismaService.transaction.updateMany({
+      where: { id: { in: ids } },
+      data: { categoryId },
+    });
+
+    return count;
+  }
+
+  async findExistingIds(ids: number[]): Promise<number[]> {
+    const found = await this.prismaService.transaction.findMany({
+      where: { id: { in: ids } },
+      select: { id: true },
+    });
+
+    return found.map(({ id }) => id);
+  }
+
   async getMonthlySummary(
     filters?: TransactionFilter,
   ): Promise<MonthlySummaryDTO> {

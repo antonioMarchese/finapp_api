@@ -17,6 +17,14 @@ export default abstract class TransactionsRepository {
     props: UpdateTransactionDTO,
   ): Promise<TransactionDTO | null>;
   abstract remove(id: number): Promise<null>;
+  // Bulk actions; each returns how many transactions it changed.
+  abstract removeMany(ids: number[]): Promise<number>;
+  abstract updateCategoryMany(
+    ids: number[],
+    categoryId: number,
+  ): Promise<number>;
+  // Of `ids`, the ones that exist.
+  abstract findExistingIds(ids: number[]): Promise<number[]>;
 
   abstract findAllAndCount(
     filters?: TransactionFilter,

@@ -14,6 +14,7 @@ import CategoryDTO from 'src/types/categories/categoryDTO';
 import CreateCategoryDTO from 'src/types/categories/createCategoryDTO';
 import UpdateCategoryDTO from 'src/types/categories/updateCategoryDTO';
 import MonthlyCategoryTotalsDTO from 'src/types/categories/monthlyCategoryTotalsDTO';
+import ReorderCategoriesDTO from 'src/types/categories/reorderCategoriesDTO';
 
 @Controller()
 export class CategoriesController {
@@ -61,6 +62,25 @@ export class CategoriesController {
       return await this.categoriesService.update(Number(id), category);
     } catch (error) {
       let message: string = 'Erro ao atualizar categoria';
+      if (error instanceof Error) message = error.message;
+
+      throw new HttpException(
+        {
+          status: 400,
+          error: message,
+        },
+        HttpStatus.BAD_REQUEST,
+      );
+    }
+  }
+
+  // Not under `categories/` so it can't be mistaken for `categories/:id`.
+  @Put('categories-order')
+  async reorder(@Body() { ids }: ReorderCategoriesDTO): Promise<CategoryDTO[]> {
+    try {
+      return await this.categoriesService.reorder(ids);
+    } catch (error) {
+      let message: string = 'Erro ao reordenar categorias';
       if (error instanceof Error) message = error.message;
 
       throw new HttpException(
