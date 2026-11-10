@@ -10,8 +10,12 @@ import Category from 'src/domain/entities/category';
 import Transaction from 'src/domain/entities/transaction';
 import UpdateTransactionDTO from 'src/types/transactions/updateTransactionDTO';
 import { transactionSchema } from 'src/types/transactions/testSchemas';
-import TypedAmountByCategory from 'src/types/transactions/amountByCategory';
+import AmountByCategoryResponse, {
+  TypedAmountByCategory,
+} from 'src/types/transactions/amountByCategory';
 import MonthlySummaryDTO from 'src/types/transactions/monthlySummaryDTO';
+import SettingsRepository from 'src/domain/repositories/settings.repository';
+import SettingsDTO from 'src/types/settings/settingsDTO';
 
 describe('TransactionsService', () => {
   let service: TransactionsService;
@@ -28,6 +32,7 @@ describe('TransactionsService', () => {
     return {
       id: 1,
       amount: transaction.getAmount(),
+      currency: transaction.getCurrency(),
       description: transaction.getDescription(),
       dueDate: transaction.getDueDate(),
       type: transaction.getType(),
@@ -59,6 +64,7 @@ describe('TransactionsService', () => {
       return await Promise.resolve({
         id: 1,
         amount: transaction.getAmount(),
+        currency: transaction.getCurrency(),
         description: transaction.getDescription(),
         dueDate: transaction.getDueDate(),
         type: transaction.getType(),
@@ -112,7 +118,7 @@ describe('TransactionsService', () => {
       );
       return await Promise.resolve(null);
     }),
-    getAmountByCategory: jest.fn(async (): Promise<TypedAmountByCategory> => {
+    getAmountByCategory: jest.fn(async (): Promise<AmountByCategoryResponse> => {
       const typedAmountByCategory: TypedAmountByCategory = {
         income: {},
         expense: {},
@@ -125,12 +131,14 @@ describe('TransactionsService', () => {
           transaction.getAmount();
       }
 
-      return await Promise.resolve(typedAmountByCategory);
+      return await Promise.resolve({ BRL: typedAmountByCategory });
     }),
     getMonthlySummary: jest.fn(async (): Promise<MonthlySummaryDTO> => {
       return await Promise.resolve({
-        '2026-01': { income: 1000, expense: 400, balance: 600 },
-        '2026-02': { income: 0, expense: 0, balance: 0 },
+        BRL: {
+          '2026-01': { income: 1000, expense: 400, balance: 600 },
+          '2026-02': { income: 0, expense: 0, balance: 0 },
+        },
       });
     }),
   };
@@ -142,10 +150,29 @@ describe('TransactionsService', () => {
         title: mockCategory.getTitle(),
         slug: mockCategory.getSlug(),
         color: mockCategory.getColor(),
+        type: mockCategory.getType(),
+        icon: mockCategory.getIcon(),
+        active: mockCategory.isActive(),
+        weeklyBudget: mockCategory.getWeeklyBudget(),
+        excludeFromWeekly: mockCategory.isExcludedFromWeekly(),
+        position: mockCategory.getPosition(),
         createdAt: mockCategory.getCreatedAt().toISOString(),
         updatedAt: mockCategory.getUpdatedAt().toISOString(),
       });
     }),
+  };
+
+  const mockSettingsRepository = {
+    get: jest.fn(
+      async (): Promise<SettingsDTO> =>
+        await Promise.resolve({
+          id: 1,
+          defaultCurrency: 'BRL',
+          createdAt: new Date().toISOString(),
+          updatedAt: new Date().toISOString(),
+        }),
+    ),
+    update: jest.fn(),
   };
 
   beforeEach(async () => {
@@ -159,6 +186,10 @@ describe('TransactionsService', () => {
         {
           provide: CategoriesRepository,
           useValue: mockCategoriesRepository,
+        },
+        {
+          provide: SettingsRepository,
+          useValue: mockSettingsRepository,
         },
       ],
     }).compile();
@@ -206,9 +237,10 @@ describe('TransactionsService', () => {
 
   it('should return amount by category typed by transaction type', async () => {
     const result = await service.getAmountByCategory();
-    expect(result).toHaveProperty('investment');
-    expect(result).toHaveProperty('expense');
-    expect(result).toHaveProperty('income');
+    expect(result).toHaveProperty('BRL');
+    expect(result.BRL).toHaveProperty('investment');
+    expect(result.BRL).toHaveProperty('expense');
+    expect(result.BRL).toHaveProperty('income');
     expect(mockTransactionsRepository.getAmountByCategory).toHaveBeenCalled();
   });
 
@@ -311,8 +343,10 @@ describe('TransactionsService', () => {
     });
 
     expect(result).toEqual({
-      '2026-01': { income: 1000, expense: 400, balance: 600 },
-      '2026-02': { income: 0, expense: 0, balance: 0 },
+      BRL: {
+        '2026-01': { income: 1000, expense: 400, balance: 600 },
+        '2026-02': { income: 0, expense: 0, balance: 0 },
+      },
     });
     expect(mockTransactionsRepository.getMonthlySummary).toHaveBeenCalled();
   });

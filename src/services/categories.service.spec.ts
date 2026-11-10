@@ -9,7 +9,16 @@ import slugfy from 'src/utils/slugify';
 describe('CategoriesService', () => {
   let service: CategoriesService;
   const categories: CategoryDTO[] = [];
+  const categoryDefaults = {
+    type: 'expense' as const,
+    icon: null,
+    active: true,
+    weeklyBudget: null,
+    excludeFromWeekly: false,
+    position: 1,
+  };
   const categorySchema = {
+    ...categoryDefaults,
     id: expect.any(Number),
     title: expect.any(String),
     slug: expect.any(String),
@@ -23,6 +32,7 @@ describe('CategoriesService', () => {
       const newDTOCategory: CategoryDTO = {
         id: 1,
         slug: slugfy(dto.title),
+        ...categoryDefaults,
         ...dto,
         createdAt: new Date().toISOString(),
         updatedAt: new Date().toISOString(),
@@ -61,12 +71,14 @@ describe('CategoriesService', () => {
     }),
     getMonthlyTotals: jest.fn(async () => {
       const mockTotals: MonthlyCategoryTotalsDTO = {
-        1: {
-          title: 'Food',
-          color: '#FF5733',
-          reports: {
-            '09-25': 150.5,
-            '08-25': 200.0,
+        BRL: {
+          1: {
+            title: 'Food',
+            color: '#FF5733',
+            reports: {
+              '09-25': 150.5,
+              '08-25': 200.0,
+            },
           },
         },
       };
@@ -190,6 +202,7 @@ describe('CategoriesService', () => {
       title: 'Testing Category',
       slug: 'testing_category',
       color: '#112233',
+      ...categoryDefaults,
       createdAt: new Date().toISOString(),
       updatedAt: new Date().toISOString(),
     };
@@ -211,12 +224,14 @@ describe('CategoriesService', () => {
 
   it('should get monthly totals', async () => {
     const expectedTotals: MonthlyCategoryTotalsDTO = {
-      1: {
-        title: 'Food',
-        color: '#FF5733',
-        reports: {
-          '09-25': 150.5,
-          '08-25': 200.0,
+      BRL: {
+        1: {
+          title: 'Food',
+          color: '#FF5733',
+          reports: {
+            '09-25': 150.5,
+            '08-25': 200.0,
+          },
         },
       },
     };

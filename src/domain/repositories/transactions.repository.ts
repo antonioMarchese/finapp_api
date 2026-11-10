@@ -1,4 +1,4 @@
-import TypedAmountByCategory from 'src/types/transactions/amountByCategory';
+import AmountByCategoryResponse from 'src/types/transactions/amountByCategory';
 import CreateTransactionDTO from 'src/types/transactions/createTransactionDTO';
 import MonthlySummaryDTO from 'src/types/transactions/monthlySummaryDTO';
 import TransactionDTO from 'src/types/transactions/transactionDTO';
@@ -17,6 +17,14 @@ export default abstract class TransactionsRepository {
     props: UpdateTransactionDTO,
   ): Promise<TransactionDTO | null>;
   abstract remove(id: number): Promise<null>;
+  // Bulk actions; each returns how many transactions it changed.
+  abstract removeMany(ids: number[]): Promise<number>;
+  abstract updateCategoryMany(
+    ids: number[],
+    categoryId: number,
+  ): Promise<number>;
+  // Of `ids`, the ones that exist.
+  abstract findExistingIds(ids: number[]): Promise<number[]>;
 
   abstract findAllAndCount(
     filters?: TransactionFilter,
@@ -24,7 +32,7 @@ export default abstract class TransactionsRepository {
   abstract findById(id: number): Promise<TransactionDTO | null>;
   abstract getAmountByCategory(
     filters?: TransactionFilter,
-  ): Promise<TypedAmountByCategory>;
+  ): Promise<AmountByCategoryResponse>;
   abstract getMonthlySummary(
     filters?: TransactionFilter,
   ): Promise<MonthlySummaryDTO>;

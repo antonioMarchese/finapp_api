@@ -1,7 +1,9 @@
 import {
   Body,
   Controller,
+  Delete,
   Get,
+  HttpCode,
   NotFoundException,
   Param,
   Post,
@@ -9,13 +11,18 @@ import {
   Query,
 } from '@nestjs/common';
 import { TransactionsService } from 'src/services/transactions.service';
-import TypedAmountByCategory from 'src/types/transactions/amountByCategory';
+import AmountByCategoryResponse from 'src/types/transactions/amountByCategory';
 import CreateTransactionDTO from 'src/types/transactions/createTransactionDTO';
 import MonthlySummaryDTO from 'src/types/transactions/monthlySummaryDTO';
 import TransactionDTO from 'src/types/transactions/transactionDTO';
 import TransactionPaginatedResponse from 'src/types/transactions/transactionPaginatedResponse';
 import TransactionFilter from 'src/types/transactions/transactionsFilter';
 import UpdateTransactionDTO from 'src/types/transactions/updateTransactionDTO';
+import {
+  BulkDeleteTransactionsDTO,
+  BulkResultDTO,
+  BulkUpdateCategoryDTO,
+} from 'src/types/transactions/bulkTransactionsDTO';
 
 @Controller()
 export class TransactionsController {
@@ -50,10 +57,33 @@ export class TransactionsController {
     return await this.transactionsService.update(Number(id), props);
   }
 
+  @Delete('transactions/:id')
+  @HttpCode(204)
+  async remove(@Param('id') id: string): Promise<void> {
+    await this.transactionsService.remove(Number(id));
+  }
+
+  // Bulk routes live outside `transactions/` so they can't collide with `:id`.
+  @Put('transactions-bulk/category')
+  async updateCategoryMany(
+    @Body() { ids, categoryId }: BulkUpdateCategoryDTO,
+  ): Promise<BulkResultDTO> {
+    return {
+      count: await this.transactionsService.updateCategoryMany(ids, categoryId),
+    };
+  }
+
+  @Delete('transactions-bulk')
+  async removeMany(
+    @Body() { ids }: BulkDeleteTransactionsDTO,
+  ): Promise<BulkResultDTO> {
+    return { count: await this.transactionsService.removeMany(ids) };
+  }
+
   @Get('categories-amount')
   async getAmountByCategory(
     @Query() filters?: TransactionFilter,
-  ): Promise<TypedAmountByCategory> {
+  ): Promise<AmountByCategoryResponse> {
     return await this.transactionsService.getAmountByCategory(filters);
   }
 

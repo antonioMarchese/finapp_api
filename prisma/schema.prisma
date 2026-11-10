@@ -15,32 +15,110 @@ enum TransactionType {
   investment
 }
 
+enum Currency {
+  BRL
+  USD
+  EUR
+  GBP
+}
+
 model Transaction {
   id          Int             @id @default(autoincrement())
   description String?
   amount      Float
+  currency    Currency        @default(BRL)
   type        TransactionType @default(expense)
   dueDate     DateTime        @updatedAt
   category    Category        @relation(fields: [categoryId], references: [id])
 
   categoryId Int
-  createdAt  DateTime @default(now())
-  updatedAt  DateTime @updatedAt
+
+  // Set when the transaction was generated from a fixed transaction template,
+  // which is how the monthly checklist knows what has already been paid.
+  fixedTransaction   FixedTransaction? @relation(fields: [fixedTransactionId], references: [id], onDelete: SetNull)
+  fixedTransactionId Int?
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
 
   @@map("transactions")
 }
 
 model Category {
-  id    Int     @id @default(autoincrement())
-  title String
-  slug  String
-  color String?
+  id                Int             @id @default(autoincrement())
+  title             String
+  slug              String
+  color             String?
+  // Which kind of transaction the category is offered for.
+  type              TransactionType @default(expense)
+  // Name from the fixed icon set the frontend renders.
+  icon              String?
+  // Inactive categories are hidden from the transaction form; their history stays.
+  active            Boolean         @default(true)
+  // Optional per-week cap, in the weekly goals' currency.
+  weeklyBudget      Float?
+  // Left out of the weekly view and its goals (rent, yearly bills...).
+  excludeFromWeekly Boolean         @default(false)
+  // Order the categories are listed in, lowest first.
+  position          Int             @default(0)
 
-  transactions Transaction[]
+  transactions      Transaction[]
+  fixedTransactions FixedTransaction[]
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
   @@unique([slug])
   @@map("categories")
+}
+
+// A recurring bill (rent, cellphone, electricity) used as a template when
+// generating the real transaction for a given month. `amount` is nullable
+// because bills like electricity change every month.
+model FixedTransaction {
+  id       Int             @id @default(autoincrement())
+  name     String
+  amount   Float?
+  currency Currency        @default(BRL)
+  type     TransactionType @default(expense)
+  dueDay   Int?
+  active   Boolean         @default(true)
+
+  category   Category @relation(fields: [categoryId], references: [id])
+  categoryId Int
+
+  transactions Transaction[]
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@map("fixed_transactions")
+}
+
+// Single-row table holding app-wide configuration.
+model AppSettings {
+  id              Int      @id @default(1)
+  defaultCurrency Currency @default(BRL)
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@map("app_settings")
+}
+
+// Single-row table with the weekly spending goals. Amounts are in `currency`,
+// as are the categories' weekly budgets; spending in other currencies is never
+// converted to count against them.
+model WeeklyGoals {
+  id              Int      @id @default(1)
+  currency        Currency @default(BRL)
+  spendingLimit   Float?
+  showDailyBudget Boolean  @default(true)
+  savingsTarget   Float?
+  noSpendDays     Int      @default(0)
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@map("weekly_goals")
 }

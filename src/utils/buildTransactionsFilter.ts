@@ -5,6 +5,7 @@ interface HashMapper {
   endDate: (transaction: Transaction, value: string) => boolean;
   type: (transaction: Transaction, value: string) => boolean;
   categoryId: (transaction: Transaction, value: string) => boolean;
+  currency: (transaction: Transaction, value: string) => boolean;
 }
 
 export default function buildInMemoTransactionFilter<
@@ -31,7 +32,11 @@ export default function buildInMemoTransactionFilter<
     categoryId: (transaction: Transaction, value: string) => {
       return transaction.getCategoryId() === Number(value);
     },
+    currency: (transaction: Transaction, value: string) => {
+      return transaction.getCurrency() === value;
+    },
   };
 
-  return hashMapper[key as keyof HashMapper];
+  // Unknown keys filter nothing rather than crashing the caller.
+  return hashMapper[key as keyof HashMapper] ?? (() => true);
 }

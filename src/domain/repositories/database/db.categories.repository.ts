@@ -1,7 +1,11 @@
 import CreateCategoryDTO from 'src/types/categories/createCategoryDTO';
+import UpdateCategoryDTO from 'src/types/categories/updateCategoryDTO';
+import { CategoryIcon } from 'src/types/categories/categoryIcons';
 import CategoriesRepository from '../categories.repository';
 import CategoryDTO from 'src/types/categories/categoryDTO';
-import MonthlyCategoryTotalsDTO from 'src/types/categories/monthlyCategoryTotalsDTO';
+import MonthlyCategoryTotalsDTO, {
+  CategoryMonthlyTotals,
+} from 'src/types/categories/monthlyCategoryTotalsDTO';
 import slugfy from 'src/utils/slugify';
 import { Injectable } from '@nestjs/common';
 import { PrismaService } from 'src/services/prisma.service';
@@ -16,8 +20,17 @@ export class DBCategoriesRepository extends CategoriesRepository<Category> {
   async create(createCategoryProps: CreateCategoryDTO): Promise<CategoryDTO> {
     const slug = slugfy(createCategoryProps.title);
 
+    // New categories go to the end of the list.
+    const last = await this.prismaService.category.aggregate({
+      _max: { position: true },
+    });
+
     const newCategory = await this.prismaService.category.create({
-      data: { ...createCategoryProps, slug },
+      data: {
+        ...createCategoryProps,
+        slug,
+        position: (last._max.position ?? 0) + 1,
+      },
     });
 
     return await Promise.resolve({
@@ -26,7 +39,9 @@ export class DBCategoriesRepository extends CategoriesRepository<Category> {
   }
 
   async findAll(): Promise<CategoryDTO[]> {
-    const categories = await this.prismaService.category.findMany();
+    const categories = await this.prismaService.category.findMany({
+      orderBy: [{ position: 'asc' }, { id: 'asc' }],
+    });
     return await Promise.resolve(
       categories.map((category) => this.toDTO(category)),
     );
@@ -51,19 +66,36 @@ export class DBCategoriesRepository extends CategoriesRepository<Category> {
     return await Promise.resolve(this.toDTO(category));
   }
 
-  async update(id: number, props: CreateCategoryDTO): Promise<CategoryDTO> {
-    const category = await this.findById(id);
-
+  async update(id: number, props: UpdateCategoryDTO): Promise<CategoryDTO> {
+    // Prisma leaves undefined fields untouched, so only what was sent changes.
     const updatedCategory = await this.prismaService.category.update({
       where: { id },
       data: {
-        title: props.title ?? category?.title,
-        color: props.color ?? category?.color,
-        slug: slugfy(props.title ?? category?.title),
+        title: props.title,
+        slug: props.title !== undefined ? slugfy(props.title) : undefined,
+        color: props.color ?? undefined,
+        type: props.type,
+        icon: props.icon,
+        active: props.active,
+        weeklyBudget: props.weeklyBudget,
+        excludeFromWeekly: props.excludeFromWeekly,
       },
     });
 
     return await Promise.resolve(this.toDTO(updatedCategory));
+  }
+
+  async reorder(ids: number[]): Promise<CategoryDTO[]> {
+    await this.prismaService.$transaction(
+      ids.map((id, position) =>
+        this.prismaService.category.update({
+          where: { id },
+          data: { position },
+        }),
+      ),
+    );
+
+    return await this.findAll();
   }
 
   async remove(id: number): Promise<null> {
@@ -78,6 +110,7 @@ export class DBCategoriesRepository extends CategoriesRepository<Category> {
         categoryid: number;
         title: string;
         color: string | null;
+        currency: string;
         month: string;
         total: number;
       }>
@@ -86,26 +119,30 @@ export class DBCategoriesRepository extends CategoriesRepository<Category> {
         c.id as categoryid,
         c.title,
         c.color,
+        t.currency::text as currency,
         TO_CHAR(t."dueDate", 'MM-YY') as month,
         SUM(t.amount) as total
       FROM categories c
       LEFT JOIN transactions t ON c.id = t."categoryId"
       WHERE t."dueDate" IS NOT NULL
-      GROUP BY c.id, c.title, c.color, TO_CHAR(t."dueDate", 'MM-YY')
-      ORDER BY c.id, month
+      GROUP BY c.id, c.title, c.color, t.currency, TO_CHAR(t."dueDate", 'MM-YY')
+      ORDER BY t.currency, c.id, month
     `;
 
-    const result: MonthlyCategoryTotalsDTO = {};
+    // Totals are bucketed per currency first, so values recorded in
+    // different currencies never land in the same report.
+    const result: Record<string, CategoryMonthlyTotals> = {};
 
     rawResults.forEach((row) => {
-      if (!result[row.categoryid]) {
-        result[row.categoryid] = {
+      if (!result[row.currency]) result[row.currency] = {};
+      if (!result[row.currency][row.categoryid]) {
+        result[row.currency][row.categoryid] = {
           title: row.title,
           color: row.color,
           reports: {},
         };
       }
-      result[row.categoryid].reports[row.month] = row.total;
+      result[row.currency][row.categoryid].reports[row.month] = row.total;
     });
 
     return result;
@@ -117,6 +154,12 @@ export class DBCategoriesRepository extends CategoriesRepository<Category> {
       slug: category.slug,
       title: category.title,
       color: category.color,
+      type: category.type,
+      icon: category.icon as CategoryIcon | null,
+      active: category.active,
+      weeklyBudget: category.weeklyBudget,
+      excludeFromWeekly: category.excludeFromWeekly,
+      position: category.position,
       createdAt: category.createdAt.toISOString(),
       updatedAt: category.updatedAt.toISOString(),
     };
